@@ -6,8 +6,8 @@ const ADMIN_PASS = "YourBrand2025!";
 
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 // 🔧 PASTE YOUR SUPABASE CREDENTIALS HERE (from supabase.com → Project Settings → API)
-const SUPABASE_URL  = "https://tqhiaslgmmtwhnuszqxo.supabase.co";   // e.g. https://xxxx.supabase.co
-const SUPABASE_KEY  = "sb_publishable_mNnL9ywbzlkAD8WDvAEv8w_DzlQaeOA"; // starts with "eyJ..."
+const SUPABASE_URL  = "YOUR_SUPABASE_URL";   // e.g. https://xxxx.supabase.co
+const SUPABASE_KEY  = "YOUR_SUPABASE_ANON_KEY"; // starts with "eyJ..."
 
 // Lightweight Supabase client — no npm package needed
 const sb = {
@@ -104,6 +104,34 @@ const sb = {
     const { data } = await this.query("members", "GET");
     return data || [];
   },
+
+  // Community posts
+  async getPosts() {
+    if (!this.ready) return null;
+    const { data } = await this.query("community_posts?order=created_at.desc&limit=100", "GET");
+    return data || null;
+  },
+
+  async addPost(post) {
+    if (!this.ready) return false;
+    const { error } = await this.query("community_posts", "POST", {
+      author: post.author, handle: post.handle, avatar: post.avatar,
+      text: post.text, image: post.image || "", likes: 0, replies: [],
+    });
+    return !error;
+  },
+
+  async updatePost(id, patch) {
+    if (!this.ready) return false;
+    await this.query("community_posts", "PATCH", patch, { id });
+    return true;
+  },
+
+  async deletePost(id) {
+    if (!this.ready) return false;
+    await this.query(`community_posts?id=eq.${id}`, "DELETE");
+    return true;
+  },
 };
 
 // ─── DB SETUP INSTRUCTIONS (shown in admin when not configured) ───────────────
@@ -136,11 +164,21 @@ CREATE TABLE IF NOT EXISTS members (
   joined_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS community_posts (
+  id BIGSERIAL PRIMARY KEY,
+  author TEXT, handle TEXT, avatar TEXT,
+  text TEXT, image TEXT,
+  likes INT DEFAULT 0,
+  replies JSONB DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable public access (Row Level Security off for simplicity)
-ALTER TABLE app_config  DISABLE ROW LEVEL SECURITY;
-ALTER TABLE subscribers DISABLE ROW LEVEL SECURITY;
-ALTER TABLE inquiries   DISABLE ROW LEVEL SECURITY;
-ALTER TABLE members     DISABLE ROW LEVEL SECURITY;
+ALTER TABLE app_config       DISABLE ROW LEVEL SECURITY;
+ALTER TABLE subscribers      DISABLE ROW LEVEL SECURITY;
+ALTER TABLE inquiries        DISABLE ROW LEVEL SECURITY;
+ALTER TABLE members          DISABLE ROW LEVEL SECURITY;
+ALTER TABLE community_posts  DISABLE ROW LEVEL SECURITY;
 `;
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -242,6 +280,18 @@ const DEFAULT_CONFIG = {
   liveKeys: { youtube:"", facebook:"", instagram:"", tiktok:"", twitch:"" },
   content:  { featuredTrack:"Your Latest Single", featuredTrackSub:"Out Now · All Platforms", showTitle:"YOUR TALK SHOW", membershipPerks:"Exclusive tracks, early episodes, behind-the-scenes access" },
   features: { membershipEnabled:true, downloadEnabled:true, scheduleEnabled:true, analyticsEnabled:false, merchEnabled:false, autoPlayAudio:false, ledBorder:true, ledColor:"", ledSpeed:"medium", ledMode:"pulse" },
+  autoPlay: {
+    enabled:    false,
+    trackIndex: 0,         // which track (0 = first)
+    trackUrl:   "",        // custom URL override (blank = use from music list)
+    trackTitle: "",        // display name
+    volume:     35,        // 0–100
+    delay:      0,         // seconds before playing after first interaction
+    loop:       false,     // loop the track
+    fadeIn:     true,      // fade volume in over 3s
+    trigger:    "first_tap", // "first_tap" | "immediate"
+    showBanner: true,      // show "Now Playing" banner when it starts
+  },
   music: {
     bannerType:"gradient", bannerUrl:"", bannerGrad1:"#FF6B35", bannerGrad2:"#C77DFF",
     featuredTitle:"Your Latest Single", featuredSub:"Out Now · All Platforms",
@@ -339,6 +389,27 @@ const DEFAULT_CONFIG = {
     ctaText:    "JOIN NOW",
     thankYouMsg:"Welcome to the inner circle! 🎉",
     stripeLink: "",
+    vipPin:     "1234",
+    vipEnabled: true,
+    vipTitle:   "Members Lounge",
+    vipTagline: "Welcome back. This is your space.",
+    vipLive: {
+      isLive:      false,
+      streamType:  "camera",   // "camera" | "rtmp" | "embed"
+      embedUrl:    "",          // YouTube/Vimeo live embed URL
+      rtmpKey:     "",          // RTMP stream key
+      streamTitle: "",
+      streamDesc:  "",
+      viewerCount: 0,
+      startedAt:   null,
+    },
+    vipContent: [
+      { id:1, type:"message",  title:"Welcome Message",    body:"Thank you for being a member. This space is yours — exclusive, private, and updated regularly with content made just for you.",  icon:"👑" },
+      { id:2, type:"video",    title:"Behind The Scenes",  url:"",   thumb:"",  desc:"Exclusive behind-the-scenes footage, never shared publicly.",  icon:"🎬" },
+      { id:3, type:"audio",    title:"Unreleased Track",   url:"",   thumb:"",  desc:"Hear it here first — before anyone else.",                      icon:"🎵" },
+      { id:4, type:"download", title:"Exclusive Download",  url:"",   fileName:"exclusive-content.pdf", desc:"Members-only digital download.",         icon:"📥" },
+      { id:5, type:"message",  title:"Direct Message",     body:"Got a question or want to connect? Reply to the email you received when you joined.",                                             icon:"💬" },
+    ],
   },
   emailList: {
     enabled:      true,
@@ -891,47 +962,88 @@ function LEDBorder({ config }) {
 
 // ─── AUTO-PLAY AUDIO ──────────────────────────────────────────────────────────
 function useAutoPlayAudio(config) {
-  const didPlay = useRef(false);
-  const handleFirstTap = useRef(null);
+  const didPlay  = useRef(false);
+  const audioRef = useRef(null);
+  const [nowPlaying, setNowPlaying] = useState(null);
 
   useEffect(() => {
-    if (!config.features?.autoPlayAudio || didPlay.current) return;
-    const tracks = config.music?.tracks;
-    if (!tracks?.length) return;
+    const ap = config.autoPlay || {};
+    if (!ap.enabled || didPlay.current) return;
 
-    const firstTrack = tracks[0];
-    const src = firstTrack.audioFile?.length > 10 ? firstTrack.audioFile
-              : firstTrack.audioUrl?.trim() || "";
+    const tracks = config.music?.tracks || [];
+    let src = ap.trackUrl?.trim() || "";
+    let title = ap.trackTitle?.trim() || "";
+
+    // Fall back to track from music list
+    if (!src && tracks.length > 0) {
+      const idx   = Math.min(ap.trackIndex || 0, tracks.length - 1);
+      const track = tracks[idx];
+      src   = track.audioFile?.length > 10 ? track.audioFile : track.audioUrl?.trim() || "";
+      title = title || track.title || "Now Playing";
+    }
     if (!src) return;
 
-    const audio = new Audio(src);
-    audio.volume = 0.35;
-    audio.loop   = false;
+    const vol    = (ap.volume ?? 35) / 100;
+    const delay  = (ap.delay  ?? 0) * 1000;
+    const loop   = ap.loop ?? false;
+    const fadeIn = ap.fadeIn ?? true;
 
-    // Must play inside a user gesture — attach to first interaction
-    const play = () => {
+    const audio = new Audio(src);
+    audio.loop   = loop;
+    audio.volume = fadeIn ? 0 : vol;
+    audioRef.current = audio;
+
+    const startPlayback = () => {
       if (didPlay.current) return;
-      didPlay.current = true;
-      audio.play().catch(() => {});
-      document.removeEventListener("touchstart", play);
-      document.removeEventListener("click", play);
+      setTimeout(() => {
+        audio.play().then(() => {
+          didPlay.current = true;
+          if (ap.showBanner !== false) setNowPlaying(title || "Now Playing");
+          // Fade in
+          if (fadeIn) {
+            let v = 0;
+            const step = setInterval(() => {
+              v = Math.min(v + vol / 20, vol);
+              audio.volume = v;
+              if (v >= vol) clearInterval(step);
+            }, 150);
+          }
+        }).catch(() => {});
+      }, delay);
     };
 
-    // Try immediate play first (works if user has interacted before)
-    audio.play().then(() => {
-      didPlay.current = true;
-    }).catch(() => {
-      // Fallback: wait for first user touch
-      document.addEventListener("touchstart", play, { once:true });
-      document.addEventListener("click",      play, { once:true });
-    });
+    if (ap.trigger === "immediate") {
+      // Try immediately (may be blocked by browser without gesture)
+      audio.play().then(() => {
+        didPlay.current = true;
+        if (ap.showBanner !== false) setNowPlaying(title || "Now Playing");
+        if (fadeIn) {
+          let v = 0;
+          const step = setInterval(() => {
+            v = Math.min(v + vol / 20, vol);
+            audio.volume = v;
+            if (v >= vol) clearInterval(step);
+          }, 150);
+        }
+      }).catch(() => {
+        // Fallback to first tap
+        document.addEventListener("touchstart", startPlayback, { once:true });
+        document.addEventListener("click",      startPlayback, { once:true });
+      });
+    } else {
+      // first_tap (default) — wait for user gesture
+      document.addEventListener("touchstart", startPlayback, { once:true });
+      document.addEventListener("click",      startPlayback, { once:true });
+    }
 
     return () => {
-      audio.pause();
-      document.removeEventListener("touchstart", play);
-      document.removeEventListener("click", play);
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+      document.removeEventListener("touchstart", startPlayback);
+      document.removeEventListener("click",      startPlayback);
     };
-  }, [config.features?.autoPlayAudio]);
+  }, [config.autoPlay?.enabled]);
+
+  return { nowPlaying, dismiss: () => setNowPlaying(null), audioRef };
 }
 
 function LogoDisplay({ config, size = 52 }) {
@@ -971,7 +1083,7 @@ export default function MediaEmpire() {
   const isDark = theme==="dark" || theme==="metal";
 
   // Auto-play audio on first interaction
-  useAutoPlayAudio(config);
+  const { nowPlaying, dismiss: dismissNowPlaying } = useAutoPlayAudio(config);
 
   // ── SPLASH SCREEN — auto-dismiss after 2.6s ───────────────────────────────
   useEffect(() => {
@@ -1143,16 +1255,16 @@ export default function MediaEmpire() {
       {/* SCREENS — with fade transition */}
       <main style={{ position:"relative", zIndex:1, paddingBottom:"90px", opacity:transitioning?0:1, transform:transitioning?"translateY(8px)":"translateY(0)", transition:"opacity 0.18s ease, transform 0.18s ease" }}>
         {screen === "home"       && <HomeScreen      go={navigateTo} config={config} />}
-        {screen === "music"      && <MusicScreen     config={config} />}
-        {screen === "shows"      && <ShowsScreen     config={config} />}
-        {screen === "gallery"    && <GalleryScreen   config={config} />}
-        {screen === "social"     && <SocialScreen    config={config} />}
-        {screen === "events"     && <EventsScreen    config={config} />}
-        {screen === "membership" && <MembershipScreen config={config} />}
-        {screen === "booking"    && <BookingScreen   config={config} />}
-        {screen === "linkinbio"  && <LinkInBioScreen config={config} />}
-        {screen === "chat"       && <ChatRoomScreen  config={config} />}
-        {screen === "merch"      && config.features.merchEnabled  && <MerchStore config={config} />}
+        {screen === "music"      && <MusicScreen     config={config} goHome={()=>navigateTo("home")} />}
+        {screen === "shows"      && <ShowsScreen     config={config} goHome={()=>navigateTo("home")} />}
+        {screen === "gallery"    && <GalleryScreen   config={config} goHome={()=>navigateTo("home")} />}
+        {screen === "social"     && <SocialScreen    config={config} goHome={()=>navigateTo("home")} />}
+        {screen === "events"     && <EventsScreen    config={config} goHome={()=>navigateTo("home")} />}
+        {screen === "membership" && <MembershipScreen config={config} goHome={()=>navigateTo("home")} />}
+        {screen === "booking"    && <BookingScreen   config={config} goHome={()=>navigateTo("home")} />}
+        {screen === "linkinbio"  && <LinkInBioScreen config={config} goHome={()=>navigateTo("home")} />}
+        {screen === "chat"       && <ChatRoomScreen  config={config} goHome={()=>navigateTo("home")} />}
+        {screen === "merch"      && config.features.merchEnabled  && <MerchStore config={config} goHome={()=>navigateTo("home")} />}
         {screen === "merch"      && !config.features.merchEnabled && <FeatureLockedScreen name="Merch Store" flag="merchEnabled" go={() => setAppState("adminLogin")} />}
       </main>
 
@@ -1181,6 +1293,24 @@ export default function MediaEmpire() {
 
       {/* TOAST NOTIFICATIONS */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+
+      {/* NOW PLAYING BANNER */}
+      {nowPlaying && (
+        <div style={{ position:"fixed", bottom:"90px", left:"16px", right:"16px", zIndex:500, borderRadius:"14px", padding:"12px 16px", background:"rgba(8,8,8,0.95)", border:`1px solid ${pc}44`, backdropFilter:"blur(20px)", display:"flex", alignItems:"center", gap:"12px", boxShadow:`0 4px 24px rgba(0,0,0,0.6), 0 0 0 1px ${pc}22`, animation:"fadeIn 0.4s ease" }}>
+          <div style={{ width:"36px", height:"36px", borderRadius:"10px", background:`linear-gradient(135deg,${pc}44,${ac}33)`, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"16px" }}>🎵</div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:"9px", color:pc, letterSpacing:"0.2em", fontFamily:"monospace", marginBottom:"2px" }}>♪ NOW PLAYING</div>
+            <div style={{ fontSize:"12px", fontWeight:"700", color:"#fff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{nowPlaying}</div>
+          </div>
+          {/* EQ bars */}
+          <div style={{ display:"flex", gap:"2px", alignItems:"flex-end", height:"18px", flexShrink:0 }}>
+            {[1,2,3,4].map(i=>(
+              <div key={i} style={{ width:"3px", borderRadius:"2px", background:pc, animation:`eq${i} 0.6s ease-in-out infinite alternate`, height:`${[10,16,12,14][i-1]}px` }} />
+            ))}
+          </div>
+          <button onClick={dismissNowPlaying} style={{ background:"none", border:"none", color:"#555", cursor:"pointer", fontSize:"16px", flexShrink:0, padding:"0 0 0 4px" }}>✕</button>
+        </div>
+      )}
 
       {/* EMAIL CAPTURE POPUP */}
       <EmailCapturePopup config={config} setConfig={setConfig} />
@@ -1342,6 +1472,7 @@ function AdminPanel({ config, saveConfig, onLogout, sendToast, pushStatus, dbSta
     { id:"gallery",    label:"GALLERY",    icon:"◈"  },
     { id:"social",     label:"SOCIAL",     icon:"◎"  },
     { id:"membership", label:"MEMBERSHIP", icon:"⭐"  },
+    { id:"viplive",    label:"VIP LIVE",   icon:"👑🔴" },
     { id:"emaillist",  label:"EMAIL LIST", icon:"📧"  },
     { id:"booking",    label:"BOOKING",    icon:"📅"  },
     { id:"events",     label:"EVENTS",     icon:"🔥"  },
@@ -1355,6 +1486,7 @@ function AdminPanel({ config, saveConfig, onLogout, sendToast, pushStatus, dbSta
     { id:"live",       label:"GO LIVE",    icon:"🔴"  },
     { id:"apis",       label:"APIs",       icon:"⚙"  },
     { id:"features",   label:"FEATURES",   icon:"★"  },
+    { id:"autoplay",   label:"AUTOPLAY",   icon:"🔊"  },
     { id:"themes",     label:"THEMES",     icon:"🎨"  },
     { id:"security",   label:"SECURITY",   icon:"🔒"  },
   ];
@@ -1425,6 +1557,7 @@ function AdminPanel({ config, saveConfig, onLogout, sendToast, pushStatus, dbSta
         {activeTab === "gallery"    && <GalleryAdminTab cfg={cfg} setCfg={setCfg} />}
         {activeTab === "social"     && <SocialPostsAdminTab cfg={cfg} setCfg={setCfg} />}
         {activeTab === "membership" && <MembershipAdminTab cfg={cfg} setCfg={setCfg} />}
+        {activeTab === "viplive"    && <VipLiveAdminTab   cfg={cfg} setCfg={setCfg} setIsLiveNow={setIsLiveNow} />}
         {activeTab === "emaillist"  && <EmailListAdminTab  cfg={cfg} setCfg={setCfg} />}
         {activeTab === "booking"    && <BookingAdminTab    cfg={cfg} setCfg={setCfg} />}
         {activeTab === "events"     && <EventsAdminTab     cfg={cfg} setCfg={setCfg} />}
@@ -1438,6 +1571,7 @@ function AdminPanel({ config, saveConfig, onLogout, sendToast, pushStatus, dbSta
         {activeTab === "live"       && <LiveTab     cfg={cfg} update={update} testConn={testConn} testResult={testResult} setIsLiveNow={setIsLiveNow} />}
         {activeTab === "apis"       && <ApisTab     cfg={cfg} update={update} testConn={testConn} testResult={testResult} />}
         {activeTab === "features"   && <FeaturesTab cfg={cfg} setCfg={setCfg} />}
+        {activeTab === "autoplay"   && <AutoPlayAdminTab cfg={cfg} setCfg={setCfg} />}
         {activeTab === "themes"     && <ThemesTab theme={theme} setTheme={setTheme} />}
         {activeTab === "security"   && <SecurityTab />}
 
@@ -2612,17 +2746,23 @@ function DatabaseTab({ dbStatus }) {
       {/* WHAT GETS SAVED */}
       <ASection title="What Gets Saved Automatically" icon="✓" color="#00F5D4">
         {[
-          ["🎨 Admin Config",       "All your brand settings, content, colors — saved every time you hit SAVE ALL"],
-          ["📧 Email Subscribers",  "Every email captured via the popup is saved permanently"],
-          ["📅 Booking Inquiries",  "Every form submission is stored in the database"],
-          ["⭐ Fan Members",        "Membership signups tracked with email and join date"],
-          ["🔄 Cross-Device Sync",  "Update on iPad, see changes on your phone instantly"],
-        ].map(([title, desc],i) => (
-          <div key={i} style={{ display:"flex", gap:"10px", padding:"10px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
-            <div style={{ fontSize:"14px", flexShrink:0, marginTop:"1px" }}>{title.split(" ")[0]}</div>
+          ["🎨","Admin Config",         "All brand settings, colors, content, and features — saved every time you hit SAVE ALL"],
+          ["📧","Email Subscribers",    "Every email captured via the pop-up is permanently saved to the database"],
+          ["📅","Booking Inquiries",    "Every form submission from your Booking page is stored and visible in Admin → 📅 BOOKING"],
+          ["🗓","Calendar Events",      "Events you add in Admin → 📅 BOOKING → Calendar are saved and persist across sessions"],
+          ["⭐","Fan Members",          "Membership signups tracked with email, plan, and join date"],
+          ["💬","Community Posts",      "Every post, reply, and like in the Community chat is saved to Supabase in real time"],
+          ["🔥","Events Showcase",      "All events you create in Admin → 🔥 EVENTS including featured flags and sold-out status"],
+          ["🔊","AutoPlay Settings",    "Your auto-play music config — track, volume, delay, fade — is saved with SAVE ALL"],
+          ["👑","VIP Content",          "Members Lounge content items and PIN are saved as part of your admin config"],
+          ["📤","Email Sent History",   "Every email campaign you send is logged with recipient count and send date"],
+          ["🔄","Cross-Device Sync",    "Update on your iPad, see changes on your phone instantly — all backed by Supabase"],
+        ].map(([emoji, title, desc], i) => (
+          <div key={i} style={{ display:"flex", gap:"12px", padding:"11px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+            <div style={{ width:"32px", height:"32px", borderRadius:"8px", background:"rgba(0,245,212,0.08)", border:"1px solid rgba(0,245,212,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"15px", flexShrink:0 }}>{emoji}</div>
             <div>
-              <div style={{ fontSize:"12px", fontWeight:"700", color:"#ddd" }}>{title.slice(3)}</div>
-              <div style={{ fontSize:"11px", color:"#777", marginTop:"2px" }}>{desc}</div>
+              <div style={{ fontSize:"12px", fontWeight:"700", color:"#ddd" }}>{title}</div>
+              <div style={{ fontSize:"11px", color:"#666", marginTop:"2px", lineHeight:1.5 }}>{desc}</div>
             </div>
           </div>
         ))}
@@ -3258,23 +3398,6 @@ function FeaturesTab({ cfg, setCfg }) {
         ))}
       </ASection>
 
-      {/* 🔊 AUTO-PLAY AUDIO */}
-      <ASection title="Auto-Play Audio" icon="🔊" color="#FF6B35">
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"12px" }}>
-          <div>
-            <div style={{ fontSize:"13px", fontWeight:"700", color:F.autoPlayAudio?"#FF6B35":"#777" }}>Play Music on App Open</div>
-            <div style={{ fontSize:"10px", color:"#555", marginTop:"2px" }}>First track plays automatically when a visitor opens the app</div>
-          </div>
-          <div onClick={()=>toggleFeature("autoPlayAudio")} style={{ width:"48px", height:"26px", borderRadius:"13px", cursor:"pointer", flexShrink:0, background:F.autoPlayAudio?"#FF6B35":"rgba(255,255,255,0.1)", position:"relative", transition:"background 0.3s" }}>
-            <div style={{ width:"20px", height:"20px", borderRadius:"50%", background:"#fff", position:"absolute", top:"3px", left:F.autoPlayAudio?"25px":"3px", transition:"left 0.3s" }} />
-          </div>
-        </div>
-        {F.autoPlayAudio && (
-          <div style={{ padding:"10px 12px", borderRadius:"9px", background:"rgba(255,107,53,0.08)", border:"1px solid rgba(255,107,53,0.2)", fontSize:"11px", color:"#FF6B35" }}>
-            🎵 First track in your music list will play at low volume on first user interaction. Browser autoplay policies require the visitor to tap the screen once first.
-          </div>
-        )}
-      </ASection>
 
       {/* 💡 LED BORDER */}
       <ASection title="LED Border" icon="💡" color="#C77DFF">
@@ -3335,6 +3458,226 @@ function FeaturesTab({ cfg, setCfg }) {
   );
 }
 
+
+// ─── AUTOPLAY ADMIN TAB ───────────────────────────────────────────────────────
+function AutoPlayAdminTab({ cfg, setCfg }) {
+  const ap     = cfg.autoPlay || {};
+  const tracks = cfg.music?.tracks || [];
+  const update = (key, val) => setCfg(p => ({ ...p, autoPlay:{ ...p.autoPlay, [key]:val } }));
+
+  const urlRef   = useRef(null);
+  const audioRef = useRef(null);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
+  const [previewSrc,     setPreviewSrc]     = useState("");
+
+  // Resolve the active source
+  const getActiveSrc = () => {
+    if (ap.trackUrl?.trim()) return ap.trackUrl.trim();
+    if (tracks.length > 0) {
+      const t = tracks[Math.min(ap.trackIndex || 0, tracks.length - 1)];
+      return t.audioFile?.length > 10 ? t.audioFile : t.audioUrl?.trim() || "";
+    }
+    return "";
+  };
+
+  const activeTrack = tracks[Math.min(ap.trackIndex || 0, tracks.length - 1)];
+  const displayTitle = ap.trackUrl?.trim()
+    ? (ap.trackTitle || "Custom URL Track")
+    : activeTrack?.title || "No track selected";
+
+  const togglePreview = () => {
+    if (previewPlaying) {
+      audioRef.current?.pause();
+      setPreviewPlaying(false);
+    } else {
+      const src = getActiveSrc();
+      if (!src) return;
+      if (!audioRef.current || previewSrc !== src) {
+        if (audioRef.current) audioRef.current.pause();
+        audioRef.current = new Audio(src);
+        audioRef.current.volume = (ap.volume ?? 35) / 100;
+        audioRef.current.loop = ap.loop ?? false;
+        audioRef.current.onended = () => setPreviewPlaying(false);
+        setPreviewSrc(src);
+      }
+      audioRef.current.play().then(() => setPreviewPlaying(true)).catch(() => {});
+    }
+  };
+
+  // Stop preview on unmount
+  useEffect(() => () => { audioRef.current?.pause(); }, []);
+
+  const Toggle = ({ val, onChange }) => (
+    <div onClick={() => onChange(!val)} style={{ width:"48px", height:"26px", borderRadius:"13px", cursor:"pointer", flexShrink:0, background:val?"#FF6B35":"rgba(255,255,255,0.1)", position:"relative", transition:"background 0.3s" }}>
+      <div style={{ width:"20px", height:"20px", borderRadius:"50%", background:"#fff", position:"absolute", top:"3px", left:val?"25px":"3px", transition:"left 0.3s", boxShadow:"0 1px 4px rgba(0,0,0,0.4)" }} />
+    </div>
+  );
+
+  return (
+    <div style={{ animation:"fadeIn 0.3s ease" }}>
+
+      {/* MASTER ENABLE */}
+      <div style={{ padding:"16px", borderRadius:"14px", marginBottom:"20px", display:"flex", alignItems:"center", justifyContent:"space-between", background: ap.enabled ? "rgba(255,107,53,0.1)" : "rgba(255,255,255,0.02)", border: ap.enabled ? "1px solid rgba(255,107,53,0.35)" : "1px solid rgba(255,255,255,0.08)", transition:"all 0.3s" }}>
+        <div>
+          <div style={{ fontSize:"15px", fontWeight:"800", color:ap.enabled?"#FF6B35":"#777" }}>Auto-Play Music</div>
+          <div style={{ fontSize:"11px", color:"#555", marginTop:"3px" }}>{ap.enabled ? "Music plays when visitors open the app" : "Disabled — music won't auto-play"}</div>
+        </div>
+        <Toggle val={ap.enabled} onChange={v => update("enabled", v)} />
+      </div>
+
+      {ap.enabled && (
+        <>
+          {/* TRACK SELECTION */}
+          <ASection title="Track Selection" icon="🎵" color="#FF6B35">
+
+            {/* FROM MUSIC LIST */}
+            <div style={{ marginBottom:"14px" }}>
+              <label style={{ fontSize:"9px", letterSpacing:"0.2em", color:"#555", display:"block", marginBottom:"8px" }}>CHOOSE FROM YOUR MUSIC LIST</label>
+              {tracks.length === 0 ? (
+                <div style={{ padding:"12px", borderRadius:"9px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", fontSize:"11px", color:"#555", textAlign:"center" }}>
+                  No tracks added yet — go to ♪ MUSIC to add tracks first
+                </div>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:"6px" }}>
+                  {tracks.map((t, i) => {
+                    const hasSrc = !!(t.audioFile?.length > 10 || t.audioUrl?.trim());
+                    const isSelected = !ap.trackUrl?.trim() && (ap.trackIndex || 0) === i;
+                    return (
+                      <div key={i} onClick={() => { if (hasSrc) { update("trackIndex", i); update("trackUrl", ""); update("trackTitle", ""); }}}
+                        style={{ display:"flex", alignItems:"center", gap:"10px", padding:"10px 12px", borderRadius:"10px", cursor:hasSrc?"pointer":"not-allowed", transition:"all 0.2s",
+                          background:isSelected?"rgba(255,107,53,0.12)":"rgba(255,255,255,0.02)",
+                          border:isSelected?"1px solid rgba(255,107,53,0.4)":"1px solid rgba(255,255,255,0.06)",
+                          opacity:hasSrc?1:0.4 }}>
+                        <div style={{ width:"32px", height:"32px", borderRadius:"8px", background:isSelected?"rgba(255,107,53,0.2)":"rgba(255,255,255,0.05)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px", flexShrink:0 }}>
+                          {isSelected ? "▶" : t.icon || "♪"}
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:"12px", fontWeight:isSelected?"800":"600", color:isSelected?"#fff":"#ccc", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.title}</div>
+                          <div style={{ fontSize:"9px", color:"#555", fontFamily:"monospace" }}>{t.genre} {!hasSrc && "· no audio file"}</div>
+                        </div>
+                        {isSelected && <div style={{ fontSize:"9px", color:"#FF6B35", fontFamily:"monospace", fontWeight:"700" }}>SELECTED ✓</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* CUSTOM URL */}
+            <div style={{ padding:"12px", borderRadius:"10px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.08)" }}>
+              <div style={{ fontSize:"9px", letterSpacing:"0.2em", color:"#555", marginBottom:"8px" }}>OR USE A CUSTOM URL</div>
+              <input value={ap.trackUrl || ""} onChange={e => update("trackUrl", e.target.value)} placeholder="https://example.com/track.mp3"
+                style={{ width:"100%", padding:"9px 11px", background:"rgba(0,0,0,0.4)", border:`1px solid ${ap.trackUrl?"rgba(255,107,53,0.35)":"rgba(255,255,255,0.08)"}`, borderRadius:"8px", color:"#ddd", fontSize:"11px", outline:"none", fontFamily:"monospace", marginBottom:"8px" }} />
+              {ap.trackUrl?.trim() && (
+                <AField label="Display Name" value={ap.trackTitle||""} onChange={v=>update("trackTitle",v)} placeholder="Track title to show in banner" />
+              )}
+            </div>
+
+            {/* PREVIEW BUTTON */}
+            <div style={{ marginTop:"12px", display:"flex", gap:"8px", alignItems:"center" }}>
+              <button onClick={togglePreview} disabled={!getActiveSrc()}
+                style={{ flex:1, padding:"10px", borderRadius:"10px", border:previewPlaying?"1px solid rgba(255,107,53,0.5)":"1px solid rgba(255,255,255,0.1)", background:previewPlaying?"rgba(255,107,53,0.15)":"rgba(255,255,255,0.04)", color:previewPlaying?"#FF6B35":"#bbb", fontSize:"11px", fontWeight:"700", cursor:"pointer", letterSpacing:"0.1em", display:"flex", alignItems:"center", justifyContent:"center", gap:"8px" }}>
+                {previewPlaying ? (
+                  <><div style={{ display:"flex", gap:"2px", alignItems:"flex-end" }}>{[1,2,3].map(i=><div key={i} style={{ width:"3px", height:`${[10,14,8][i-1]}px`, borderRadius:"2px", background:"#FF6B35", animation:`eq${i} 0.6s ease-in-out infinite alternate` }}/>)}</div>STOP PREVIEW</>
+                ) : "▶ PREVIEW TRACK"}
+              </button>
+              <div style={{ fontSize:"10px", color:"#555", flex:1, textAlign:"center" }}>
+                {displayTitle}
+              </div>
+            </div>
+          </ASection>
+
+          {/* PLAYBACK SETTINGS */}
+          <ASection title="Playback Settings" icon="⚙" color="#C77DFF">
+
+            {/* VOLUME */}
+            <div style={{ marginBottom:"18px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
+                <label style={{ fontSize:"9px", letterSpacing:"0.2em", color:"#555" }}>VOLUME</label>
+                <span style={{ fontSize:"12px", fontWeight:"700", color:"#C77DFF", fontFamily:"monospace" }}>{ap.volume ?? 35}%</span>
+              </div>
+              <input type="range" min={5} max={100} step={5} value={ap.volume ?? 35}
+                onChange={e => update("volume", Number(e.target.value))}
+                style={{ width:"100%", accentColor:"#C77DFF" }} />
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:"8px", color:"#333", marginTop:"2px" }}>
+                <span>Quiet</span><span>Full Volume</span>
+              </div>
+            </div>
+
+            {/* DELAY */}
+            <div style={{ marginBottom:"18px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
+                <label style={{ fontSize:"9px", letterSpacing:"0.2em", color:"#555" }}>START DELAY</label>
+                <span style={{ fontSize:"12px", fontWeight:"700", color:"#C77DFF", fontFamily:"monospace" }}>
+                  {ap.delay ? `${ap.delay}s` : "Instant"}
+                </span>
+              </div>
+              <input type="range" min={0} max={30} step={1} value={ap.delay ?? 0}
+                onChange={e => update("delay", Number(e.target.value))}
+                style={{ width:"100%", accentColor:"#C77DFF" }} />
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:"8px", color:"#333", marginTop:"2px" }}>
+                <span>Instant</span><span>30s delay</span>
+              </div>
+            </div>
+
+            {/* TOGGLES */}
+            {[
+              ["fadeIn",     "🌅 Fade In",         "Volume fades in gradually over 3 seconds", ap.fadeIn ?? true],
+              ["loop",       "🔁 Loop Track",       "Repeat the track continuously",            ap.loop  ?? false],
+              ["showBanner", "📢 Show Now Playing", "Displays a banner when music starts",      ap.showBanner ?? true],
+            ].map(([key, label, desc, val]) => (
+              <div key={key} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 0", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+                <div>
+                  <div style={{ fontSize:"12px", fontWeight:"600", color:val?"#ddd":"#666" }}>{label}</div>
+                  <div style={{ fontSize:"10px", color:"#484848", marginTop:"2px" }}>{desc}</div>
+                </div>
+                <Toggle val={val} onChange={v => update(key, v)} />
+              </div>
+            ))}
+          </ASection>
+
+          {/* TRIGGER */}
+          <ASection title="When to Play" icon="⏰" color="#00F5D4">
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px" }}>
+              {[
+                ["first_tap", "👆 First Tap", "Plays after visitor's first tap/touch (most compatible with mobile)"],
+                ["immediate", "⚡ Immediate", "Tries to play the instant app loads (may be blocked by browser)"],
+              ].map(([val, label, desc]) => (
+                <div key={val} onClick={() => update("trigger", val)}
+                  style={{ padding:"12px", borderRadius:"10px", cursor:"pointer", border:(ap.trigger||"first_tap")===val?"1px solid rgba(0,245,212,0.4)":"1px solid rgba(255,255,255,0.07)", background:(ap.trigger||"first_tap")===val?"rgba(0,245,212,0.08)":"rgba(255,255,255,0.02)" }}>
+                  <div style={{ fontSize:"12px", fontWeight:"700", color:(ap.trigger||"first_tap")===val?"#00F5D4":"#777", marginBottom:"4px" }}>{label}</div>
+                  <div style={{ fontSize:"9px", color:"#555", lineHeight:1.5 }}>{desc}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop:"10px", padding:"9px 12px", borderRadius:"8px", background:"rgba(0,0,0,0.3)", border:"1px solid rgba(255,255,255,0.05)", fontSize:"10px", color:"#555" }}>
+              ⚠ All browsers block immediate audio without a user gesture. "First Tap" is the most reliable option on mobile.
+            </div>
+          </ASection>
+
+          {/* LIVE PREVIEW SUMMARY */}
+          <div style={{ padding:"14px 16px", borderRadius:"12px", background:"rgba(255,107,53,0.07)", border:"1px solid rgba(255,107,53,0.2)" }}>
+            <div style={{ fontSize:"9px", color:"#FF6B35", letterSpacing:"0.2em", fontFamily:"monospace", marginBottom:"8px" }}>◆ CURRENT CONFIG SUMMARY</div>
+            {[
+              ["Track",   displayTitle],
+              ["Volume",  `${ap.volume ?? 35}%`],
+              ["Delay",   ap.delay ? `${ap.delay}s after trigger` : "No delay"],
+              ["Trigger", ap.trigger === "immediate" ? "Immediate on load" : "On first user tap"],
+              ["Fade In", (ap.fadeIn ?? true) ? "Yes" : "No"],
+              ["Loop",    ap.loop ? "Yes" : "No"],
+              ["Banner",  (ap.showBanner ?? true) ? "Shown" : "Hidden"],
+            ].map(([k,v]) => (
+              <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"4px 0", borderBottom:"1px solid rgba(255,255,255,0.04)", fontSize:"11px" }}>
+                <span style={{ color:"#555" }}>{k}</span>
+                <span style={{ color:"#ccc", fontFamily:"monospace" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 // ─── THEMES TAB ───────────────────────────────────────────────────────────────
 const THEME_PREVIEWS = {
@@ -3684,7 +4027,7 @@ function HomeScreen({ go, config }) {
   );
 }
 
-function MusicScreen({ config }) {
+function MusicScreen({ config, goHome }) {
   const pc    = config.brand.primaryColor;
   const ac    = config.brand.accentColor;
   const music = config.music || {};
@@ -3758,6 +4101,7 @@ function MusicScreen({ config }) {
 
   return (
     <div style={{ paddingBottom:"20px" }}>
+      <BackButton onBack={goHome} />
       <audio ref={audioRef}
         onTimeUpdate={() => { const a=audioRef.current; if(a){setCurrentTime(a.currentTime);setProgress(a.duration?(a.currentTime/a.duration)*100:0);} }}
         onLoadedMetadata={() => { if(audioRef.current) setDuration(audioRef.current.duration); }}
@@ -3889,7 +4233,7 @@ function MusicScreen({ config }) {
 }
 
 
-function ShowsScreen({ config }) {
+function ShowsScreen({ config, goHome }) {
   const ac       = config.brand.accentColor;
   const pc       = config.brand.primaryColor;
   const shows    = config.shows || {};
@@ -3940,6 +4284,7 @@ function ShowsScreen({ config }) {
 
     return (
       <div style={{ background:"#000", minHeight:"100vh", color:"#F0EDE8" }}>
+      <BackButton onBack={goHome} />
         {/* VIDEO PLAYER HEADER */}
         <div style={{ padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", background:"rgba(0,0,0,0.8)", backdropFilter:"blur(10px)" }}>
           <div style={{ minWidth:0 }}>
@@ -4060,7 +4405,7 @@ const FILTERS = [
 function buildTransform(r,fh,fv){const p=[];if(r)p.push(`rotate(${r}deg)`);if(fh)p.push("scaleX(-1)");if(fv)p.push("scaleY(-1)");return p.join(" ")||"none";}
 function buildFilter(f,b,c){const base=FILTERS.find(fi=>fi.id===f)?.css||"none";const adj=`brightness(${b/100}) contrast(${c/100})`;return f==="none"?adj:`${base} ${adj}`;}
 
-function GalleryScreen({ config }) {
+function GalleryScreen({ config, goHome }) {
   const [lightbox, setLightbox] = useState(null);
   const photos = (config.gallery && config.gallery.photos) || [];
 
@@ -4069,6 +4414,7 @@ function GalleryScreen({ config }) {
     if (!photo) { setLightbox(null); return null; }
     return (
       <div style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,0.96)", display:"flex", flexDirection:"column" }}>
+      <BackButton onBack={goHome} />
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"16px 20px", borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
           <div style={{ fontSize:"12px", color:"#aaa", fontFamily:"monospace" }}>{photo.name}</div>
           <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
@@ -4113,7 +4459,7 @@ function GalleryScreen({ config }) {
   );
 }
 
-function SocialScreen({ config }) {
+function SocialScreen({ config, goHome }) {
   const [copied,   setCopied]   = useState(false);
   const [lightbox, setLightbox] = useState(null);
   const posts = config.socialPosts || {};
@@ -4128,6 +4474,7 @@ function SocialScreen({ config }) {
     const p = lightbox;
     return (
       <div style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,0.96)", display:"flex", flexDirection:"column" }}>
+      <BackButton onBack={goHome} />
         <div style={{ padding:"16px 20px", borderBottom:"1px solid rgba(255,255,255,0.06)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:"8px" }}><SocialLogo id={p.logo||p.id} size={16}/><span style={{ fontSize:"12px", fontWeight:"700", color:p.color }}>{p.name}</span></div>
@@ -5096,23 +5443,46 @@ const SEED_POSTS = [
   { id:3, author:"DeShawn T.",  handle:"@deshawnt",  avatar:"🔥", time:"1d ago",   text:"The merch just arrived and the quality is no joke. Hoodie is 🔥🔥🔥 worth every penny.", image:"", likes:67, liked:false, replies:[] },
 ];
 
-function ChatRoomScreen({ config }) {
+function ChatRoomScreen({ config, goHome }) {
   const pc   = config.brand.primaryColor;
   const ac   = config.brand.accentColor;
   const chat = config.chat || {};
 
-  const [posts,       setPosts]      = useState(SEED_POSTS);
-  const [newText,     setNewText]    = useState("");
-  const [newImage,    setNewImage]   = useState("");
-  const [composing,   setComposing]  = useState(false);
-  const [replyingTo,  setReplyingTo] = useState(null); // post id
-  const [replyText,   setReplyText]  = useState("");
-  const [expandedPost,setExpandedPost]= useState(null); // post id for replies
-  const [authorName,  setAuthorName] = useState("");
-  const [authorHandle,setAuthorHandle]= useState("");
-  const [profileSet,  setProfileSet] = useState(false);
+  const [posts,        setPosts]       = useState(SEED_POSTS);
+  const [dbLoaded,     setDbLoaded]    = useState(false);
+  const [newText,      setNewText]     = useState("");
+  const [newImage,     setNewImage]    = useState("");
+  const [composing,    setComposing]   = useState(false);
+  const [replyingTo,   setReplyingTo]  = useState(null);
+  const [replyText,    setReplyText]   = useState("");
+  const [expandedPost, setExpandedPost]= useState(null);
+  const [authorName,   setAuthorName]  = useState("");
+  const [authorHandle, setAuthorHandle]= useState("");
+  const [profileSet,   setProfileSet]  = useState(false);
   const imageRef = useRef(null);
   const feedRef  = useRef(null);
+
+  // Load posts from Supabase on mount
+  useEffect(() => {
+    sb.getPosts().then(data => {
+      if (data && data.length > 0) {
+        const formatted = data.map(p => ({
+          id:      p.id,
+          author:  p.author,
+          handle:  p.handle,
+          avatar:  p.avatar,
+          time:    new Date(p.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}),
+          text:    p.text,
+          image:   p.image || "",
+          likes:   p.likes || 0,
+          liked:   false,
+          replies: p.replies || [],
+        }));
+        setPosts(formatted);
+      }
+      setDbLoaded(true);
+    }).catch(() => setDbLoaded(true));
+  }, []);
 
   // Hero background
   const heroBg = chat.heroType === "image" && chat.heroImageUrl
@@ -5127,7 +5497,7 @@ function ChatRoomScreen({ config }) {
   const myAvatar = authorHandle ? AVATARS[authorHandle.length % AVATARS.length] : "😊";
 
   // ── SUBMIT POST ────────────────────────────────────────────────────────────
-  const submitPost = () => {
+  const submitPost = async () => {
     if (!newText.trim()) return;
     const name   = authorName.trim()   || "Anonymous";
     const handle = authorHandle.trim() || "@user";
@@ -5147,6 +5517,8 @@ function ChatRoomScreen({ config }) {
     setNewText(""); setNewImage(""); setComposing(false);
     if (!profileSet) setProfileSet(true);
     feedRef.current?.scrollTo({ top:0, behavior:"smooth" });
+    // Save to Supabase
+    await sb.addPost(post);
   };
 
   // ── SUBMIT REPLY ───────────────────────────────────────────────────────────
@@ -5161,10 +5533,15 @@ function ChatRoomScreen({ config }) {
 
   // ── LIKE POST ──────────────────────────────────────────────────────────────
   const likePost = (postId) => {
-    setPosts(prev => prev.map(p => p.id === postId
-      ? { ...p, likes: p.liked ? p.likes-1 : p.likes+1, liked: !p.liked }
-      : p
-    ));
+    setPosts(prev => {
+      const updated = prev.map(p => p.id === postId
+        ? { ...p, likes: p.liked ? p.likes-1 : p.likes+1, liked: !p.liked }
+        : p
+      );
+      const post = updated.find(p => p.id === postId);
+      if (post) sb.updatePost(postId, { likes: post.likes });
+      return updated;
+    });
   };
 
   const likeReply = (postId, replyId) => {
@@ -5172,6 +5549,23 @@ function ChatRoomScreen({ config }) {
       ...p,
       replies: p.replies.map(r => r.id !== replyId ? r : { ...r, likes:r.liked?r.likes-1:r.likes+1, liked:!r.liked })
     }));
+  };
+
+  // ── SUBMIT REPLY ───────────────────────────────────────────────────────────
+  const submitReplyToPost = async (postId) => {
+    if (!replyText.trim()) return;
+    const reply = {
+      id: Date.now(), author: authorName||"Anonymous",
+      handle: (authorHandle||"@user").startsWith("@") ? (authorHandle||"@user") : "@"+(authorHandle||"user"),
+      avatar: myAvatar, time:"just now", text: replyText.trim(), likes:0, liked:false,
+    };
+    setPosts(prev => {
+      const updated = prev.map(p => p.id===postId ? {...p, replies:[...(p.replies||[]),reply]} : p);
+      const post = updated.find(p=>p.id===postId);
+      if (post) sb.updatePost(postId, { replies: post.replies });
+      return updated;
+    });
+    setReplyText(""); setReplyingTo(null);
   };
 
   const handleImagePick = (file) => {
@@ -5186,6 +5580,7 @@ function ChatRoomScreen({ config }) {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100%", minHeight:"calc(100vh - 115px)" }}>
+      <BackButton onBack={goHome} />
 
       {/* ── STATIC HERO BANNER ── */}
       <div style={{ position:"relative", flexShrink:0, background:heroBg, overflow:"hidden" }}>
@@ -5462,47 +5857,351 @@ function ChatAdminTab({ cfg, setCfg }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // 1 ─── FAN MEMBERSHIP SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
-function MembershipScreen({ config }) {
+function MembershipScreen({ config, goHome }) {
   const pc = config.brand.primaryColor;
   const ac = config.brand.accentColor;
   const m  = config.membership || {};
-  const [joined, setJoined] = useState(false);
 
-  return (
-    <div style={{ padding:"28px 20px" }}>
-      <SH icon="⭐" title="MEMBERSHIP" accent="#FFD60A" sub={m.tagline || "Get exclusive access to everything"} />
+  // VIP gate state — persisted in sessionStorage
+  const [vipUnlocked, setVipUnlocked] = useState(() => {
+    try { return sessionStorage.getItem("vip_unlocked") === "1"; } catch { return false; }
+  });
+  const [pinInput,    setPinInput]    = useState("");
+  const [pinError,    setPinError]    = useState(false);
+  const [pinShake,    setPinShake]    = useState(false);
+  const [joined,      setJoined]      = useState(false);
+  const [activeItem,  setActiveItem]  = useState(null);
 
-      {/* HERO CARD */}
-      <div style={{ padding:"28px 20px", borderRadius:"20px", marginBottom:"24px", background:`linear-gradient(135deg,${pc}22,${ac}14)`, border:`1px solid ${pc}44`, textAlign:"center" }}>
-        <div style={{ fontSize:"48px", marginBottom:"12px" }}>⭐</div>
-        <div style={{ fontSize:"22px", fontWeight:"900", marginBottom:"4px" }}>{m.title || "Fan Membership"}</div>
-        <div style={{ fontSize:"36px", fontWeight:"900", color:pc, marginBottom:"4px" }}>
-          ${m.price || "4.99"}<span style={{ fontSize:"14px", color:"#bbb" }}>/{m.billingCycle || "month"}</span>
-        </div>
-        <div style={{ fontSize:"11px", color:"#bbb", marginBottom:"20px" }}>Cancel anytime · Instant access</div>
-        {joined ? (
-          <div style={{ padding:"16px", borderRadius:"12px", background:"rgba(0,245,212,0.1)", border:"1px solid rgba(0,245,212,0.3)", fontSize:"14px", fontWeight:"700", color:"#00F5D4" }}>
-            ✓ {m.thankYouMsg || "Welcome to the inner circle! 🎉"}
+  const vipContent = m.vipContent || [];
+
+  const tryPin = () => {
+    const correct = m.vipPin || "1234";
+    if (pinInput === correct) {
+      setVipUnlocked(true);
+      try { sessionStorage.setItem("vip_unlocked","1"); } catch {}
+      setPinError(false);
+    } else {
+      setPinError(true);
+      setPinShake(true);
+      setTimeout(() => setPinShake(false), 600);
+      setPinInput("");
+    }
+  };
+
+  const TYPE_ICONS = { message:"💬", video:"🎬", audio:"🎵", download:"📥", link:"🔗", image:"📸" };
+  const TYPE_COLORS = { message:pc, video:"#C77DFF", audio:"#00F5D4", download:"#FFD60A", link:ac, image:"#F72585" };
+
+  // ── VIP LOUNGE VIEW ────────────────────────────────────────────────────────
+  if (vipUnlocked && m.vipEnabled !== false) {
+    return (
+      <div style={{ paddingBottom:"32px" }}>
+        <BackButton onBack={goHome} />
+
+        {/* VIP HERO */}
+        <div style={{ position:"relative", overflow:"hidden", padding:"40px 20px 32px", textAlign:"center" }}>
+          <div style={{ position:"absolute", inset:0, background:`radial-gradient(ellipse at 50% 0%, ${pc}30 0%, transparent 70%)`, pointerEvents:"none" }} />
+          <div style={{ position:"absolute", inset:0, backgroundImage:`repeating-linear-gradient(45deg, ${pc}08 0px, transparent 1px, transparent 20px)`, pointerEvents:"none" }} />
+          <div style={{ position:"relative", zIndex:1 }}>
+            <div style={{ display:"inline-flex", alignItems:"center", gap:"8px", padding:"5px 14px", borderRadius:"20px", background:`linear-gradient(135deg,${pc}33,${ac}22)`, border:`1px solid ${pc}55`, marginBottom:"16px" }}>
+              <span style={{ fontSize:"12px" }}>👑</span>
+              <span style={{ fontSize:"9px", fontWeight:"900", letterSpacing:"0.3em", color:pc, fontFamily:"monospace" }}>VIP ACCESS GRANTED</span>
+            </div>
+            <div style={{ fontSize:"clamp(24px,7vw,40px)", fontWeight:"900", lineHeight:1.1, marginBottom:"6px", background:`linear-gradient(135deg,#fff,${pc},${ac})`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>
+              {m.vipTitle || "Members Lounge"}
+            </div>
+            <div style={{ fontSize:"12px", color:"rgba(255,255,255,0.5)", letterSpacing:"0.1em" }}>
+              {m.vipTagline || "Welcome back. This is your space."}
+            </div>
           </div>
-        ) : (
-          <button onClick={() => { if (m.stripeLink) window.open(m.stripeLink,"_blank"); else setJoined(true); }}
-            style={{ width:"100%", padding:"16px", borderRadius:"14px", border:"none", background:`linear-gradient(135deg,${pc},#FFD60A)`, color:"#000", fontSize:"14px", fontWeight:"900", letterSpacing:"0.15em", cursor:"pointer" }}>
-            {m.ctaText || "JOIN NOW"} →
+        </div>
+
+        {/* MEMBER BADGE */}
+        <div style={{ margin:"0 16px 24px", padding:"14px 16px", borderRadius:"14px", background:`linear-gradient(135deg,${pc}18,${ac}10)`, border:`1px solid ${pc}33`, display:"flex", alignItems:"center", gap:"12px" }}>
+          <div style={{ width:"46px", height:"46px", borderRadius:"50%", background:`linear-gradient(135deg,${pc},${ac})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"22px", flexShrink:0 }}>⭐</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:"13px", fontWeight:"800", color:"#fff" }}>Active Member</div>
+            <div style={{ fontSize:"10px", color:pc, marginTop:"2px" }}>${m.price || "4.99"}/{m.billingCycle||"month"} · Full VIP Access</div>
+          </div>
+          <button onClick={() => { setVipUnlocked(false); try{ sessionStorage.removeItem("vip_unlocked"); }catch{} }}
+            style={{ padding:"6px 10px", borderRadius:"8px", border:"1px solid rgba(255,255,255,0.1)", background:"none", color:"#555", fontSize:"9px", cursor:"pointer", fontFamily:"monospace" }}>
+            LOCK
           </button>
+        </div>
+
+        {/* VIP LIVE STREAM — appears at top when active */}
+        {m.vipLive?.isLive && (
+          <div style={{ margin:"0 16px 20px" }}>
+            <div style={{ borderRadius:"16px", overflow:"hidden", border:"2px solid rgba(255,59,48,0.5)", boxShadow:"0 4px 30px rgba(255,59,48,0.25)" }}>
+              {/* LIVE HEADER */}
+              <div style={{ display:"flex", alignItems:"center", gap:"10px", padding:"12px 14px", background:"rgba(255,59,48,0.15)" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:"6px", flex:1 }}>
+                  <div style={{ width:"8px", height:"8px", borderRadius:"50%", background:"#FF3B30", boxShadow:"0 0 8px #FF3B30", animation:"livePulse 1s ease-in-out infinite", flexShrink:0 }} />
+                  <span style={{ fontSize:"10px", fontWeight:"900", color:"#FF3B30", letterSpacing:"0.2em", fontFamily:"monospace" }}>🔴 VIP LIVE</span>
+                </div>
+                <div style={{ fontSize:"9px", color:"rgba(255,255,255,0.4)", fontFamily:"monospace" }}>
+                  MEMBERS ONLY
+                </div>
+              </div>
+
+              {/* STREAM CONTENT */}
+              {m.vipLive.streamType === "embed" && m.vipLive.embedUrl ? (
+                <div style={{ aspectRatio:"16/9", background:"#000" }}>
+                  <iframe src={m.vipLive.embedUrl} style={{ width:"100%", height:"100%", border:"none" }} allow="autoplay; fullscreen" allowFullScreen />
+                </div>
+              ) : m.vipLive.streamType === "camera" ? (
+                <div style={{ aspectRatio:"16/9", background:"#0a0a0f", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"8px" }}>
+                  <div style={{ fontSize:"36px" }}>📹</div>
+                  <div style={{ fontSize:"12px", color:"#777" }}>Camera stream active</div>
+                  <div style={{ fontSize:"10px", color:"#555" }}>Stream live from Admin → 👑🔴 VIP LIVE</div>
+                </div>
+              ) : (
+                <div style={{ aspectRatio:"16/9", background:"#0a0a0f", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"8px" }}>
+                  <div style={{ fontSize:"36px" }}>⚡</div>
+                  <div style={{ fontSize:"12px", color:"#777" }}>RTMP Stream broadcasting</div>
+                </div>
+              )}
+
+              {/* STREAM INFO */}
+              <div style={{ padding:"12px 14px", background:"rgba(0,0,0,0.4)" }}>
+                <div style={{ fontSize:"14px", fontWeight:"800", color:"#fff", marginBottom:"3px" }}>{m.vipLive.streamTitle || "VIP Live Stream"}</div>
+                {m.vipLive.streamDesc && <div style={{ fontSize:"11px", color:"#888", lineHeight:1.5 }}>{m.vipLive.streamDesc}</div>}
+              </div>
+            </div>
+          </div>
         )}
+
+        {/* EXCLUSIVE CONTENT GRID */}
+        <div style={{ padding:"0 16px" }}>
+          <div style={{ fontSize:"9px", letterSpacing:"0.35em", color:"#555", fontFamily:"monospace", marginBottom:"14px" }}>◆ EXCLUSIVE CONTENT</div>
+
+          {vipContent.length === 0 && (
+            <div style={{ textAlign:"center", padding:"40px 20px", color:"#484848" }}>
+              <div style={{ fontSize:"36px", marginBottom:"10px" }}>👑</div>
+              <div style={{ fontSize:"13px" }}>Exclusive content coming soon.</div>
+              <div style={{ fontSize:"11px", color:"#333", marginTop:"6px" }}>Your host will post members-only content here.</div>
+            </div>
+          )}
+
+          {vipContent.map((item, i) => {
+            const color = TYPE_COLORS[item.type] || pc;
+            const isActive = activeItem === item.id;
+            return (
+              <div key={item.id || i} style={{ marginBottom:"12px", borderRadius:"16px", overflow:"hidden", border:`1px solid ${color}33`, background:"rgba(255,255,255,0.02)", transition:"all 0.2s" }}>
+
+                {/* HEADER ROW */}
+                <div onClick={() => setActiveItem(isActive ? null : item.id)}
+                  style={{ display:"flex", alignItems:"center", gap:"12px", padding:"16px", cursor:"pointer" }}>
+                  <div style={{ width:"44px", height:"44px", borderRadius:"12px", flexShrink:0, background:`${color}18`, border:`1px solid ${color}33`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"20px" }}>
+                    {item.icon || TYPE_ICONS[item.type] || "⭐"}
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:"13px", fontWeight:"800", color:"#fff", marginBottom:"3px" }}>{item.title}</div>
+                    <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
+                      <span style={{ padding:"2px 8px", borderRadius:"10px", background:`${color}20`, border:`1px solid ${color}33`, fontSize:"8px", color, fontFamily:"monospace", letterSpacing:"0.1em" }}>
+                        {item.type?.toUpperCase()}
+                      </span>
+                      <span style={{ fontSize:"10px", color:"#555" }}>
+                        {item.desc && item.desc.slice(0,50)}{item.desc?.length > 50 ? "…" : ""}
+                      </span>
+                    </div>
+                  </div>
+                  <span style={{ color:color, fontSize:"18px", transition:"transform 0.2s", transform:isActive?"rotate(90deg)":"rotate(0)" }}>›</span>
+                </div>
+
+                {/* EXPANDED CONTENT */}
+                {isActive && (
+                  <div style={{ padding:"0 16px 16px", animation:"fadeIn 0.25s ease" }}>
+                    <div style={{ borderTop:`1px solid ${color}22`, paddingTop:"14px" }}>
+
+                      {/* MESSAGE */}
+                      {item.type === "message" && (
+                        <div style={{ fontSize:"13px", color:"#ccc", lineHeight:1.7, whiteSpace:"pre-wrap" }}>{item.body}</div>
+                      )}
+
+                      {/* VIDEO */}
+                      {item.type === "video" && (
+                        item.url ? (
+                          item.url.includes("youtube") || item.url.includes("youtu.be") ? (
+                            <div style={{ borderRadius:"10px", overflow:"hidden", aspectRatio:"16/9" }}>
+                              <iframe src={item.url.replace("watch?v=","embed/").replace("youtu.be/","youtube.com/embed/")} style={{ width:"100%", height:"100%", border:"none" }} allow="autoplay" allowFullScreen />
+                            </div>
+                          ) : (
+                            <video src={item.url} controls style={{ width:"100%", borderRadius:"10px" }} />
+                          )
+                        ) : (
+                          <div style={{ aspectRatio:"16/9", borderRadius:"10px", background:"rgba(199,125,255,0.08)", border:"1px solid rgba(199,125,255,0.2)", display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:"8px" }}>
+                            <span style={{ fontSize:"32px" }}>🎬</span>
+                            <span style={{ fontSize:"11px", color:"#555" }}>Video coming soon</span>
+                          </div>
+                        )
+                      )}
+
+                      {/* AUDIO */}
+                      {item.type === "audio" && (
+                        item.url ? (
+                          <div style={{ padding:"12px", borderRadius:"10px", background:"rgba(0,245,212,0.06)", border:"1px solid rgba(0,245,212,0.2)" }}>
+                            <div style={{ fontSize:"12px", color:"#00F5D4", marginBottom:"8px" }}>🎵 {item.title}</div>
+                            <audio src={item.url} controls style={{ width:"100%", accentColor:"#00F5D4" }} />
+                          </div>
+                        ) : (
+                          <div style={{ padding:"20px", borderRadius:"10px", background:"rgba(0,245,212,0.06)", border:"1px solid rgba(0,245,212,0.2)", textAlign:"center", color:"#555" }}>
+                            <div style={{ fontSize:"28px", marginBottom:"6px" }}>🎵</div>
+                            <div style={{ fontSize:"11px" }}>Audio coming soon</div>
+                          </div>
+                        )
+                      )}
+
+                      {/* DOWNLOAD */}
+                      {item.type === "download" && (
+                        item.url ? (
+                          <a href={item.url} download={item.fileName || "download"} style={{ display:"flex", alignItems:"center", gap:"10px", padding:"14px 16px", borderRadius:"10px", background:`rgba(255,214,10,0.08)`, border:`1px solid rgba(255,214,10,0.25)`, textDecoration:"none", color:"#FFD60A" }}>
+                            <span style={{ fontSize:"24px" }}>📥</span>
+                            <div>
+                              <div style={{ fontSize:"13px", fontWeight:"700" }}>{item.fileName || "Download File"}</div>
+                              <div style={{ fontSize:"10px", color:"rgba(255,214,10,0.6)", marginTop:"2px" }}>Tap to download</div>
+                            </div>
+                          </a>
+                        ) : (
+                          <div style={{ padding:"16px", borderRadius:"10px", background:"rgba(255,214,10,0.05)", border:"1px solid rgba(255,214,10,0.15)", textAlign:"center", color:"#555" }}>
+                            <div style={{ fontSize:"24px", marginBottom:"6px" }}>📥</div>
+                            <div style={{ fontSize:"11px" }}>Download coming soon</div>
+                          </div>
+                        )
+                      )}
+
+                      {/* LINK */}
+                      {item.type === "link" && item.url && (
+                        <a href={item.url} target="_blank" rel="noreferrer" style={{ display:"block", padding:"14px 16px", borderRadius:"10px", background:`${color}0d`, border:`1px solid ${color}33`, textDecoration:"none", color, textAlign:"center", fontSize:"13px", fontWeight:"700" }}>
+                          {item.title} ↗
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ── PUBLIC / PRE-PURCHASE VIEW ─────────────────────────────────────────────
+  return (
+    <div style={{ paddingBottom:"32px" }}>
+      <BackButton onBack={goHome} />
+
+      {/* HERO */}
+      <div style={{ position:"relative", overflow:"hidden", padding:"40px 20px 32px", textAlign:"center" }}>
+        <div style={{ position:"absolute", inset:0, background:`radial-gradient(ellipse at 50% 0%, ${pc}22 0%, transparent 60%)`, pointerEvents:"none" }} />
+        <div style={{ position:"relative", zIndex:1 }}>
+          <div style={{ fontSize:"52px", marginBottom:"12px" }}>👑</div>
+          <div style={{ fontSize:"clamp(26px,7vw,44px)", fontWeight:"900", lineHeight:1.1, marginBottom:"6px" }}>
+            <span style={{ background:`linear-gradient(135deg,${pc},#FFD60A,${ac})`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>
+              {m.title || "Fan Membership"}
+            </span>
+          </div>
+          <div style={{ fontSize:"13px", color:"rgba(255,255,255,0.5)", marginBottom:"24px" }}>{m.tagline || "Get exclusive access to everything"}</div>
+          <div style={{ display:"inline-block", padding:"8px 24px", borderRadius:"12px", background:`linear-gradient(135deg,${pc}22,${ac}14)`, border:`1px solid ${pc}44` }}>
+            <span style={{ fontSize:"32px", fontWeight:"900", color:pc }}>${m.price || "4.99"}</span>
+            <span style={{ fontSize:"13px", color:"#bbb" }}>/{m.billingCycle || "month"}</span>
+          </div>
+          <div style={{ fontSize:"10px", color:"#555", marginTop:"8px", letterSpacing:"0.15em", fontFamily:"monospace" }}>CANCEL ANYTIME · INSTANT ACCESS</div>
+        </div>
       </div>
 
       {/* PERKS */}
-      <div style={{ fontSize:"9px", letterSpacing:"0.3em", color:"#aaa", fontFamily:"monospace", marginBottom:"14px" }}>WHAT YOU GET</div>
-      {(m.perks || []).map((perk,i) => (
-        <div key={i} style={{ display:"flex", alignItems:"center", gap:"12px", padding:"14px", marginBottom:"10px", borderRadius:"12px", background:"rgba(255,255,255,0.03)", border:`1px solid ${pc}22` }}>
-          <div style={{ width:"28px", height:"28px", borderRadius:"8px", background:`${pc}22`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px", flexShrink:0 }}>✓</div>
-          <div style={{ fontSize:"13px", color:"#ddd" }}>{perk}</div>
+      <div style={{ padding:"0 16px 20px" }}>
+        <div style={{ fontSize:"9px", letterSpacing:"0.35em", color:"#555", fontFamily:"monospace", marginBottom:"14px" }}>WHAT YOU GET</div>
+        {(m.perks || []).map((perk, i) => (
+          <div key={i} style={{ display:"flex", alignItems:"center", gap:"14px", padding:"14px 16px", marginBottom:"8px", borderRadius:"12px", background:"rgba(255,255,255,0.025)", border:`1px solid ${pc}22` }}>
+            <div style={{ width:"26px", height:"26px", borderRadius:"8px", background:`${pc}22`, border:`1px solid ${pc}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"12px", flexShrink:0, color:pc }}>✓</div>
+            <div style={{ fontSize:"13px", color:"#ddd" }}>{perk}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* VIP PREVIEW LOCKED PANEL */}
+      {m.vipEnabled !== false && (
+        <div style={{ margin:"0 16px 20px", borderRadius:"16px", overflow:"hidden", border:`1px solid ${pc}33` }}>
+          <div style={{ padding:"16px", background:`linear-gradient(135deg,${pc}18,${ac}10)`, display:"flex", alignItems:"center", gap:"10px" }}>
+            <span style={{ fontSize:"20px" }}>🔐</span>
+            <div>
+              <div style={{ fontSize:"13px", fontWeight:"800", color:"#fff" }}>Members Lounge</div>
+              <div style={{ fontSize:"10px", color:pc }}>Exclusive VIP content — members only</div>
+            </div>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:"1px", background:"rgba(255,255,255,0.03)" }}>
+            {(m.vipContent || []).slice(0,4).map((item,i) => (
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:"10px", padding:"11px 14px", background:"rgba(0,0,0,0.3)", filter:"blur(0px)" }}>
+                <span style={{ fontSize:"16px", opacity:0.5 }}>{item.icon || "⭐"}</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:"11px", color:"#555", fontWeight:"600" }}>{"▓".repeat(Math.min(item.title?.length||8,16))}</div>
+                </div>
+                <div style={{ fontSize:"10px", color:"#333" }}>🔒</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding:"14px 16px", background:"rgba(0,0,0,0.4)", textAlign:"center", fontSize:"11px", color:"#484848" }}>
+            Join to unlock {m.vipContent?.length || 5} exclusive items
+          </div>
         </div>
-      ))}
+      )}
+
+      {/* CTA + VIP PIN ENTRY */}
+      <div style={{ padding:"0 16px" }}>
+        {joined ? (
+          <div style={{ padding:"20px", borderRadius:"14px", background:"rgba(0,245,212,0.08)", border:"1px solid rgba(0,245,212,0.3)", textAlign:"center" }}>
+            <div style={{ fontSize:"28px", marginBottom:"8px" }}>🎉</div>
+            <div style={{ fontSize:"15px", fontWeight:"800", color:"#00F5D4", marginBottom:"6px" }}>{m.thankYouMsg || "Welcome to the inner circle!"}</div>
+            <div style={{ fontSize:"11px", color:"#555", marginBottom:"16px" }}>Use your member PIN to access the VIP Lounge.</div>
+          </div>
+        ) : (
+          <button onClick={() => { if (m.stripeLink) window.open(m.stripeLink,"_blank"); else setJoined(true); }}
+            style={{ width:"100%", padding:"18px", borderRadius:"14px", border:"none", background:`linear-gradient(135deg,${pc},#FFD60A)`, color:"#000", fontSize:"15px", fontWeight:"900", letterSpacing:"0.15em", cursor:"pointer", marginBottom:"16px", boxShadow:`0 6px 24px ${pc}44` }}>
+            👑 {m.ctaText || "JOIN NOW"} — ${m.price || "4.99"}/{m.billingCycle||"mo"}
+          </button>
+        )}
+
+        {/* PIN UNLOCK */}
+        {m.vipEnabled !== false && (
+          <div style={{ padding:"16px", borderRadius:"14px", border:"1px solid rgba(255,255,255,0.08)", background:"rgba(255,255,255,0.02)" }}>
+            <div style={{ fontSize:"11px", fontWeight:"700", color:"#aaa", marginBottom:"10px", textAlign:"center" }}>Already a member? Enter your PIN</div>
+            <div style={{ display:"flex", gap:"8px" }}>
+              <input
+                type="password" inputMode="numeric" maxLength={8}
+                value={pinInput} onChange={e => { setPinInput(e.target.value); setPinError(false); }}
+                onKeyDown={e => e.key === "Enter" && tryPin()}
+                placeholder="Enter PIN..."
+                style={{
+                  flex:1, padding:"11px 14px", borderRadius:"10px",
+                  background:"rgba(0,0,0,0.4)",
+                  border:`1px solid ${pinError?"rgba(255,59,48,0.6)":"rgba(255,255,255,0.1)"}`,
+                  color:"#fff", fontSize:"16px", outline:"none", fontFamily:"monospace",
+                  letterSpacing:"0.3em", textAlign:"center",
+                  animation:pinShake?"pinShake 0.5s ease":"none",
+                }}
+              />
+              <button onClick={tryPin}
+                style={{ padding:"11px 18px", borderRadius:"10px", border:"none", background:`linear-gradient(135deg,${pc},${ac})`, color:"#000", fontSize:"13px", fontWeight:"900", cursor:"pointer" }}>
+                →
+              </button>
+            </div>
+            {pinError && <div style={{ fontSize:"11px", color:"#FF3B30", textAlign:"center", marginTop:"8px" }}>Incorrect PIN — try again</div>}
+            <div style={{ fontSize:"9px", color:"#333", textAlign:"center", marginTop:"8px" }}>Your PIN was sent in your membership confirmation email</div>
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes pinShake {
+          0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)}
+        }
+      `}</style>
     </div>
   );
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 2 ─── EMAIL CAPTURE POPUP
@@ -5576,7 +6275,7 @@ function EmailCapturePopup({ config, setConfig }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // 3 ─── BOOKING / INQUIRY SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
-function BookingScreen({ config }) {
+function BookingScreen({ config, goHome }) {
   const pc = config.brand.primaryColor;
   const ac = config.brand.accentColor;
   const b  = config.booking || {};
@@ -5595,6 +6294,7 @@ function BookingScreen({ config }) {
 
   if (sent) return (
     <div style={{ padding:"80px 24px", textAlign:"center" }}>
+      <BackButton onBack={goHome} />
       <div style={{ fontSize:"56px", marginBottom:"16px" }}>🎉</div>
       <div style={{ fontSize:"22px", fontWeight:"900", marginBottom:"8px", color:pc }}>Inquiry Sent!</div>
       <div style={{ fontSize:"14px", color:"#bbb", marginBottom:"8px" }}>{b.responseTime || "We respond within 48 hours."}</div>
@@ -5654,7 +6354,7 @@ function BookingScreen({ config }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // 4 ─── LINK IN BIO SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
-function LinkInBioScreen({ config }) {
+function LinkInBioScreen({ config, goHome }) {
   const pc  = config.brand.primaryColor;
   const ac  = config.brand.accentColor;
   const lib = config.linkInBio || {};
@@ -5666,6 +6366,7 @@ function LinkInBioScreen({ config }) {
 
   return (
     <div style={{ padding:"28px 20px" }}>
+      <BackButton onBack={goHome} />
       {/* HERO */}
       <div style={{ textAlign:"center", marginBottom:"28px" }}>
         <LogoDisplay config={config} size={72} />
@@ -5708,50 +6409,406 @@ function LinkInBioScreen({ config }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ─── ADMIN: MEMBERSHIP TAB ───────────────────────────────────────────────────
+// ─── VIP LIVE ADMIN TAB ───────────────────────────────────────────────────────
+function VipLiveAdminTab({ cfg, setCfg, setIsLiveNow }) {
+  const m       = cfg.membership || {};
+  const vl      = m.vipLive || {};
+  const pc      = cfg.brand?.primaryColor || "#FF6B35";
+  const ac      = cfg.brand?.accentColor  || "#C77DFF";
+
+  const updateVL = (key, val) => setCfg(p => ({
+    ...p, membership:{ ...p.membership, vipLive:{ ...(p.membership?.vipLive||{}), [key]:val } }
+  }));
+
+  const [isLive,    setIsLive]    = useState(vl.isLive || false);
+  const [timer,     setTimer]     = useState(0);
+  const [viewers,   setViewers]   = useState(vl.viewerCount || 0);
+  const [cameraOn,  setCameraOn]  = useState(false);
+  const [camError,  setCamError]  = useState("");
+  const [streamType,setStreamType]= useState(vl.streamType || "camera");
+  const [title,     setTitle]     = useState(vl.streamTitle || "");
+  const [desc,      setDesc]      = useState(vl.streamDesc  || "");
+  const [embedUrl,  setEmbedUrl]  = useState(vl.embedUrl    || "");
+
+  const videoRef  = useRef(null);
+  const streamRef = useRef(null);
+  const timerRef  = useRef(null);
+
+  useEffect(() => () => {
+    clearInterval(timerRef.current);
+    streamRef.current?.getTracks().forEach(t => t.stop());
+  }, []);
+
+  const fmt = s => `${String(Math.floor(s/3600)).padStart(2,"0")}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:true });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+      setCameraOn(true); setCamError("");
+    } catch { setCamError("Camera access denied — check browser settings."); }
+  };
+
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setCameraOn(false);
+  };
+
+  const goLive = () => {
+    if (!title.trim()) return;
+    setIsLive(true);
+    setTimer(0);
+    setViewers(Math.floor(Math.random() * 5) + 1);
+    updateVL("isLive",      true);
+    updateVL("streamTitle", title);
+    updateVL("streamDesc",  desc);
+    updateVL("streamType",  streamType);
+    updateVL("embedUrl",    embedUrl);
+    updateVL("startedAt",   new Date().toISOString());
+    if (setIsLiveNow) setIsLiveNow(true);
+    timerRef.current = setInterval(() => {
+      setTimer(t => t + 1);
+      setViewers(v => Math.max(1, v + Math.floor(Math.random() * 3) - 1));
+    }, 1000);
+  };
+
+  const endLive = () => {
+    clearInterval(timerRef.current);
+    stopCamera();
+    setIsLive(false);
+    setTimer(0);
+    updateVL("isLive",      false);
+    updateVL("startedAt",   null);
+    updateVL("viewerCount", 0);
+    if (setIsLiveNow) setIsLiveNow(false);
+  };
+
+  const canGoLive = title.trim().length > 0 && (
+    streamType === "camera" ||
+    (streamType === "embed" && embedUrl.trim().length > 0) ||
+    streamType === "rtmp"
+  );
+
+  return (
+    <div style={{ animation:"fadeIn 0.3s ease" }}>
+
+      {/* STATUS BANNER */}
+      <div style={{ padding:"14px 16px", borderRadius:"14px", marginBottom:"20px", display:"flex", alignItems:"center", gap:"12px",
+        background: isLive ? "rgba(255,59,48,0.12)" : "rgba(255,255,255,0.02)",
+        border: isLive ? "1px solid rgba(255,59,48,0.4)" : "1px solid rgba(255,255,255,0.08)",
+        transition:"all 0.4s" }}>
+        <div style={{ width:"10px", height:"10px", borderRadius:"50%", flexShrink:0,
+          background: isLive ? "#FF3B30" : "#333",
+          boxShadow: isLive ? "0 0 8px #FF3B30" : "none",
+          animation: isLive ? "livePulse 1.5s ease-in-out infinite" : "none" }} />
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:"13px", fontWeight:"800", color: isLive ? "#FF3B30" : "#555" }}>
+            {isLive ? "🔴 VIP STREAM IS LIVE" : "Stream Offline"}
+          </div>
+          <div style={{ fontSize:"10px", color:"#555", marginTop:"2px" }}>
+            {isLive ? `${fmt(timer)} · ${viewers} VIP viewers watching` : "Start a private stream for your VIP members"}
+          </div>
+        </div>
+        {isLive && (
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontSize:"20px", fontWeight:"900", color:"#FF3B30" }}>{viewers}</div>
+            <div style={{ fontSize:"8px", color:"#555", letterSpacing:"0.15em" }}>VIEWERS</div>
+          </div>
+        )}
+      </div>
+
+      {/* CAMERA PREVIEW */}
+      {streamType === "camera" && (
+        <div style={{ marginBottom:"16px", borderRadius:"14px", overflow:"hidden", background:"#0a0a0f", position:"relative", aspectRatio:"16/9", border:"1px solid rgba(255,255,255,0.08)" }}>
+          <video ref={videoRef} muted playsInline style={{ width:"100%", height:"100%", objectFit:"cover", display:cameraOn?"block":"none" }} />
+          {!cameraOn && (
+            <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"10px" }}>
+              <div style={{ fontSize:"36px" }}>📹</div>
+              <div style={{ fontSize:"12px", color:"#555" }}>Camera preview</div>
+              {camError && <div style={{ fontSize:"10px", color:"#FF3B30", textAlign:"center", padding:"0 20px" }}>{camError}</div>}
+            </div>
+          )}
+          {isLive && cameraOn && (
+            <div style={{ position:"absolute", top:"10px", left:"10px", display:"flex", alignItems:"center", gap:"6px", padding:"4px 10px", borderRadius:"10px", background:"rgba(255,59,48,0.9)" }}>
+              <div style={{ width:"6px", height:"6px", borderRadius:"50%", background:"#fff", animation:"livePulse 1s infinite" }} />
+              <span style={{ fontSize:"9px", fontWeight:"900", color:"#fff", letterSpacing:"0.15em" }}>LIVE</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* STREAM TYPE PICKER */}
+      {!isLive && (
+        <ASection title="Stream Source" icon="📡" color="#C77DFF">
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"6px", marginBottom:"12px" }}>
+            {[["camera","📹 Camera","Use device camera"],["embed","🔗 Embed","YouTube/Vimeo live"],["rtmp","⚡ RTMP","Stream key"]].map(([val,lbl,sub])=>(
+              <div key={val} onClick={()=>setStreamType(val)}
+                style={{ padding:"10px 6px", borderRadius:"10px", cursor:"pointer", textAlign:"center",
+                  border:streamType===val?"1px solid #C77DFF":"1px solid rgba(255,255,255,0.07)",
+                  background:streamType===val?"rgba(199,125,255,0.12)":"rgba(255,255,255,0.02)" }}>
+                <div style={{ fontSize:"11px", fontWeight:"700", color:streamType===val?"#C77DFF":"#777" }}>{lbl}</div>
+                <div style={{ fontSize:"8px", color:"#484848", marginTop:"2px" }}>{sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* CAMERA CONTROLS */}
+          {streamType==="camera" && (
+            !cameraOn
+              ? <button onClick={startCamera} style={{ width:"100%", padding:"10px", borderRadius:"10px", border:"1px solid rgba(199,125,255,0.3)", background:"rgba(199,125,255,0.08)", color:"#C77DFF", fontSize:"11px", fontWeight:"700", cursor:"pointer" }}>📹 START CAMERA PREVIEW</button>
+              : <button onClick={stopCamera}  style={{ width:"100%", padding:"10px", borderRadius:"10px", border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.04)", color:"#777", fontSize:"11px", cursor:"pointer" }}>⏹ STOP CAMERA</button>
+          )}
+
+          {/* EMBED URL */}
+          {streamType==="embed" && (
+            <div>
+              <AField label="YouTube / Vimeo Live Embed URL" value={embedUrl} onChange={setEmbedUrl} placeholder="https://www.youtube.com/embed/LIVE_ID?autoplay=1" />
+              <div style={{ fontSize:"9px", color:"#555" }}>Get this from YouTube Studio → Go Live → Share → Embed</div>
+            </div>
+          )}
+
+          {/* RTMP */}
+          {streamType==="rtmp" && (
+            <div style={{ padding:"12px", borderRadius:"10px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.08)" }}>
+              <div style={{ fontSize:"11px", color:"#bbb", lineHeight:1.7, marginBottom:"8px" }}>
+                Point your broadcasting software (OBS, Streamlabs) to the RTMP server of your choice, then paste the stream key below for your records.
+              </div>
+              <AField label="Stream Key (reference)" value={vl.rtmpKey||""} onChange={v=>updateVL("rtmpKey",v)} placeholder="Paste your stream key..." />
+            </div>
+          )}
+        </ASection>
+      )}
+
+      {/* STREAM DETAILS */}
+      {!isLive && (
+        <ASection title="Stream Details" icon="◈" color="#FF6B35">
+          <AField label="Stream Title *" value={title} onChange={setTitle} placeholder="VIP-only Q&A Session 🎤" />
+          <div style={{ marginBottom:"12px" }}>
+            <label style={{ fontSize:"9px", letterSpacing:"0.2em", color:"#555", display:"block", marginBottom:"6px" }}>DESCRIPTION</label>
+            <textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={2} placeholder="Tell your VIPs what this stream is about..."
+              style={{ width:"100%", padding:"9px 12px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"8px", color:"#ddd", fontSize:"12px", outline:"none", fontFamily:"monospace", resize:"none", lineHeight:1.5 }} />
+          </div>
+        </ASection>
+      )}
+
+      {/* GO LIVE / END */}
+      {!isLive ? (
+        <button onClick={goLive} disabled={!canGoLive}
+          style={{ width:"100%", padding:"18px", borderRadius:"14px", border:"none", cursor:canGoLive?"pointer":"not-allowed",
+            background:canGoLive?"linear-gradient(135deg,#FF3B30,#FF6B35)":"rgba(255,255,255,0.05)",
+            color:canGoLive?"#fff":"#555", fontSize:"15px", fontWeight:"900", letterSpacing:"0.15em",
+            boxShadow:canGoLive?"0 6px 24px rgba(255,59,48,0.4)":"none", transition:"all 0.3s" }}>
+          🔴 GO VIP LIVE
+        </button>
+      ) : (
+        <div>
+          {/* LIVE DASHBOARD */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"8px", marginBottom:"16px" }}>
+            {[["⏱","DURATION",fmt(timer)],["👁","VIEWERS",viewers],["👑","ACCESS","VIP ONLY"]].map(([icon,lbl,val])=>(
+              <div key={lbl} style={{ padding:"12px 8px", borderRadius:"10px", background:"rgba(255,59,48,0.08)", border:"1px solid rgba(255,59,48,0.2)", textAlign:"center" }}>
+                <div style={{ fontSize:"16px", marginBottom:"2px" }}>{icon}</div>
+                <div style={{ fontSize:"14px", fontWeight:"900", color:"#FF3B30" }}>{val}</div>
+                <div style={{ fontSize:"7px", color:"#555", letterSpacing:"0.2em", marginTop:"2px" }}>{lbl}</div>
+              </div>
+            ))}
+          </div>
+          <button onClick={endLive} style={{ width:"100%", padding:"16px", borderRadius:"14px", cursor:"pointer", background:"rgba(255,59,48,0.1)", border:"2px solid #FF3B30", color:"#FF3B30", fontSize:"14px", fontWeight:"900", letterSpacing:"0.15em" }}>
+            ⏹ END VIP STREAM
+          </button>
+        </div>
+      )}
+
+      {/* INFO PANEL */}
+      <div style={{ marginTop:"16px", padding:"12px 14px", borderRadius:"11px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)", fontSize:"10px", color:"#555", lineHeight:1.7 }}>
+        <strong style={{ color:"#aaa" }}>How it works:</strong> When you go VIP Live, your stream appears at the top of the Members Lounge — visible only to users who have unlocked the VIP area with their PIN. Nobody else can access it.
+      </div>
+    </div>
+  );
+}
+
 function MembershipAdminTab({ cfg, setCfg }) {
   const m = cfg.membership || {};
   const update = (key, val) => setCfg(prev=>({...prev,membership:{...prev.membership,[key]:val}}));
   const [newPerk, setNewPerk] = useState("");
+  const [memTab,  setMemTab]  = useState("settings"); // settings | vip | content
+  const [editItem,setEditItem]= useState(null);
+  const [newItem, setNewItem] = useState({ type:"message", title:"", body:"", url:"", desc:"", icon:"⭐", fileName:"" });
+
+  const vipContent = m.vipContent || [];
+  const updateContent = (items) => update("vipContent", items);
+  const updateItem = (id, key, val) => updateContent(vipContent.map(i=>i.id===id?{...i,[key]:val}:i));
+  const removeItem = (id) => updateContent(vipContent.filter(i=>i.id!==id));
+  const addItem = () => {
+    if (!newItem.title.trim()) return;
+    updateContent([...vipContent, { ...newItem, id:Date.now() }]);
+    setNewItem({ type:"message", title:"", body:"", url:"", desc:"", icon:"⭐", fileName:"" });
+    setEditItem(null);
+  };
+
+  const TYPE_OPTIONS = [
+    { val:"message",  label:"💬 Message",  desc:"Text/announcement block" },
+    { val:"video",    label:"🎬 Video",    desc:"YouTube, Vimeo, or uploaded MP4" },
+    { val:"audio",    label:"🎵 Audio",    desc:"Exclusive music or podcast" },
+    { val:"download", label:"📥 Download", desc:"File, PDF, or digital product" },
+    { val:"link",     label:"🔗 Link",     desc:"Button linking to a URL" },
+  ];
 
   return (
     <div style={{ animation:"fadeIn 0.3s ease" }}>
-      <ASection title="Membership Settings" icon="⭐" color="#FFD60A">
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"16px" }}>
-          <div style={{ fontSize:"12px", color:"#ccc" }}>Membership Page Enabled</div>
-          <div onClick={()=>update("enabled",!m.enabled)} style={{ width:"48px", height:"26px", borderRadius:"13px", cursor:"pointer", background:m.enabled?"#FFD60A":"rgba(255,255,255,0.1)", position:"relative", transition:"background 0.3s" }}>
-            <div style={{ width:"20px", height:"20px", borderRadius:"50%", background:"#fff", position:"absolute", top:"3px", left:m.enabled?"25px":"3px", transition:"left 0.3s", boxShadow:"0 1px 4px rgba(0,0,0,0.4)" }} />
-          </div>
-        </div>
-        <AField label="Page Title"    value={m.title||""}    onChange={v=>update("title",v)}    placeholder="Fan Membership" />
-        <AField label="Tagline"       value={m.tagline||""}  onChange={v=>update("tagline",v)}  placeholder="Get exclusive access to everything" />
-        <div style={{ display:"flex", gap:"12px" }}>
-          <div style={{ flex:1 }}><AField label="Price $" value={m.price||""} onChange={v=>update("price",v)} placeholder="4.99" type="number" /></div>
-          <div style={{ flex:1 }}>
-            <label style={{ fontSize:"9px", letterSpacing:"0.2em", color:"#aaa", display:"block", marginBottom:"7px" }}>BILLING</label>
-            <select value={m.billingCycle||"month"} onChange={e=>update("billingCycle",e.target.value)} style={{ width:"100%", padding:"11px 13px", background:"#0a0a0f", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"9px", color:"#E8E4DC", fontSize:"12px", outline:"none", fontFamily:"monospace" }}>
-              <option value="month">Monthly</option><option value="year">Yearly</option><option value="week">Weekly</option>
-            </select>
-          </div>
-        </div>
-        <AField label="CTA Button Text"  value={m.ctaText||""}      onChange={v=>update("ctaText",v)}      placeholder="JOIN NOW" />
-        <AField label="Thank You Message" value={m.thankYouMsg||""}  onChange={v=>update("thankYouMsg",v)}  placeholder="Welcome to the inner circle! 🎉" />
-        <AField label="Stripe Payment Link" value={m.stripeLink||""} onChange={v=>update("stripeLink",v)}  placeholder="https://buy.stripe.com/..." />
-      </ASection>
-      <ASection title="Member Perks" icon="✓" color="#00F5D4">
-        {(m.perks||[]).map((p,i)=>(
-          <div key={i} style={{ display:"flex", gap:"8px", marginBottom:"8px", alignItems:"center" }}>
-            <input value={p} onChange={e=>{ const arr=[...(m.perks||[])]; arr[i]=e.target.value; update("perks",arr); }} style={{ flex:1, padding:"9px 12px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"8px", color:"#E8E4DC", fontSize:"12px", outline:"none", fontFamily:"monospace" }} />
-            <button onClick={()=>update("perks",(m.perks||[]).filter((_,j)=>j!==i))} style={{ padding:"7px 10px", borderRadius:"7px", border:"1px solid rgba(255,59,48,0.3)", background:"rgba(255,59,48,0.07)", color:"#FF3B30", fontSize:"11px", cursor:"pointer" }}>✕</button>
-          </div>
+
+      {/* SUB TABS */}
+      <div style={{ display:"flex", borderBottom:"1px solid rgba(255,255,255,0.06)", marginBottom:"18px" }}>
+        {[["settings","⚙ SETTINGS"],["vip","🔐 VIP GATE"],["content","👑 CONTENT"]].map(([id,lbl])=>(
+          <button key={id} onClick={()=>setMemTab(id)} style={{ flex:1, padding:"10px 4px", background:"none", border:"none", cursor:"pointer", fontSize:"8px", letterSpacing:"0.15em", fontWeight:"700", fontFamily:"monospace", color:memTab===id?"#FFD60A":"#3a3a3a", borderBottom:memTab===id?"2px solid #FFD60A":"2px solid transparent" }}>
+            {lbl}
+          </button>
         ))}
-        <div style={{ display:"flex", gap:"8px", marginTop:"6px" }}>
-          <input value={newPerk} onChange={e=>setNewPerk(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&newPerk.trim()){ update("perks",[...(m.perks||[]),newPerk.trim()]); setNewPerk(""); }}} placeholder="Add a perk... e.g. 🎵 Early track access" style={{ flex:1, padding:"9px 12px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(0,245,212,0.25)", borderRadius:"8px", color:"#E8E4DC", fontSize:"12px", outline:"none", fontFamily:"monospace" }} />
-          <button onClick={()=>{ if(newPerk.trim()){ update("perks",[...(m.perks||[]),newPerk.trim()]); setNewPerk(""); }}} style={{ padding:"9px 14px", borderRadius:"8px", border:"none", background:"linear-gradient(135deg,#00F5D4,#C77DFF)", color:"#000", fontWeight:"900", fontSize:"11px", cursor:"pointer" }}>+ ADD</button>
+      </div>
+
+      {/* ── SETTINGS ── */}
+      {memTab==="settings" && (
+        <div>
+          <ASection title="Membership Settings" icon="⭐" color="#FFD60A">
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"14px" }}>
+              <div style={{ fontSize:"12px", color:"#ccc" }}>Membership Enabled</div>
+              <div onClick={()=>update("enabled",!m.enabled)} style={{ width:"48px", height:"26px", borderRadius:"13px", cursor:"pointer", background:m.enabled?"#FFD60A":"rgba(255,255,255,0.1)", position:"relative", transition:"background 0.3s" }}>
+                <div style={{ width:"20px", height:"20px", borderRadius:"50%", background:"#fff", position:"absolute", top:"3px", left:m.enabled?"25px":"3px", transition:"left 0.3s" }} />
+              </div>
+            </div>
+            <AField label="Page Title"          value={m.title||""}       onChange={v=>update("title",v)}       placeholder="Fan Membership" />
+            <AField label="Tagline"             value={m.tagline||""}     onChange={v=>update("tagline",v)}     placeholder="Get exclusive access to everything" />
+            <div style={{ display:"flex", gap:"12px" }}>
+              <div style={{ flex:1 }}><AField label="Price $" value={m.price||""} onChange={v=>update("price",v)} placeholder="4.99" type="number" /></div>
+              <div style={{ flex:1 }}>
+                <label style={{ fontSize:"9px", letterSpacing:"0.2em", color:"#aaa", display:"block", marginBottom:"7px" }}>BILLING</label>
+                <select value={m.billingCycle||"month"} onChange={e=>update("billingCycle",e.target.value)} style={{ width:"100%", padding:"11px 13px", background:"#0a0a0f", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"9px", color:"#E8E4DC", fontSize:"12px", outline:"none", fontFamily:"monospace" }}>
+                  <option value="month">Monthly</option><option value="year">Yearly</option><option value="week">Weekly</option>
+                </select>
+              </div>
+            </div>
+            <AField label="CTA Button Text"       value={m.ctaText||""}      onChange={v=>update("ctaText",v)}      placeholder="JOIN NOW" />
+            <AField label="Thank You Message"      value={m.thankYouMsg||""}  onChange={v=>update("thankYouMsg",v)}  placeholder="Welcome to the inner circle! 🎉" />
+            <AField label="Stripe Payment Link"    value={m.stripeLink||""}   onChange={v=>update("stripeLink",v)}   placeholder="https://buy.stripe.com/..." />
+          </ASection>
+          <ASection title="Member Perks" icon="✓" color="#00F5D4">
+            {(m.perks||[]).map((p,i)=>(
+              <div key={i} style={{ display:"flex", gap:"8px", marginBottom:"8px", alignItems:"center" }}>
+                <input value={p} onChange={e=>{ const arr=[...(m.perks||[])]; arr[i]=e.target.value; update("perks",arr); }} style={{ flex:1, padding:"9px 12px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"8px", color:"#E8E4DC", fontSize:"12px", outline:"none", fontFamily:"monospace" }} />
+                <button onClick={()=>update("perks",(m.perks||[]).filter((_,j)=>j!==i))} style={{ padding:"7px 10px", borderRadius:"7px", border:"1px solid rgba(255,59,48,0.3)", background:"rgba(255,59,48,0.07)", color:"#FF3B30", fontSize:"11px", cursor:"pointer" }}>✕</button>
+              </div>
+            ))}
+            <div style={{ display:"flex", gap:"8px", marginTop:"6px" }}>
+              <input value={newPerk} onChange={e=>setNewPerk(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&newPerk.trim()){ update("perks",[...(m.perks||[]),newPerk.trim()]); setNewPerk(""); }}} placeholder="Add a perk... e.g. 🎵 Early track access" style={{ flex:1, padding:"9px 12px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(0,245,212,0.25)", borderRadius:"8px", color:"#E8E4DC", fontSize:"12px", outline:"none", fontFamily:"monospace" }} />
+              <button onClick={()=>{ if(newPerk.trim()){ update("perks",[...(m.perks||[]),newPerk.trim()]); setNewPerk(""); }}} style={{ padding:"9px 14px", borderRadius:"8px", border:"none", background:"linear-gradient(135deg,#00F5D4,#C77DFF)", color:"#000", fontWeight:"900", fontSize:"11px", cursor:"pointer" }}>+ ADD</button>
+            </div>
+          </ASection>
         </div>
-      </ASection>
+      )}
+
+      {/* ── VIP GATE ── */}
+      {memTab==="vip" && (
+        <div>
+          <ASection title="VIP Lounge Gate" icon="🔐" color="#FFD60A">
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"16px" }}>
+              <div>
+                <div style={{ fontSize:"12px", fontWeight:"700", color:m.vipEnabled!==false?"#FFD60A":"#555" }}>VIP Members Lounge</div>
+                <div style={{ fontSize:"10px", color:"#555", marginTop:"2px" }}>PIN-protected page with exclusive content</div>
+              </div>
+              <div onClick={()=>update("vipEnabled",!(m.vipEnabled!==false))} style={{ width:"48px", height:"26px", borderRadius:"13px", cursor:"pointer", background:m.vipEnabled!==false?"#FFD60A":"rgba(255,255,255,0.1)", position:"relative", transition:"background 0.3s" }}>
+                <div style={{ width:"20px", height:"20px", borderRadius:"50%", background:"#fff", position:"absolute", top:"3px", left:m.vipEnabled!==false?"25px":"3px", transition:"left 0.3s" }} />
+              </div>
+            </div>
+            <AField label="Lounge Title"   value={m.vipTitle||""}   onChange={v=>update("vipTitle",v)}   placeholder="Members Lounge" />
+            <AField label="Lounge Tagline" value={m.vipTagline||""} onChange={v=>update("vipTagline",v)} placeholder="Welcome back. This is your space." />
+            <div style={{ marginBottom:"4px" }}>
+              <label style={{ fontSize:"9px", letterSpacing:"0.2em", color:"#aaa", display:"block", marginBottom:"7px" }}>MEMBER PIN (share with paying members)</label>
+              <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+                <input value={m.vipPin||""} onChange={e=>update("vipPin",e.target.value)} placeholder="e.g. 1234" maxLength={8}
+                  style={{ flex:1, padding:"11px 14px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,214,10,0.3)", borderRadius:"9px", color:"#FFD60A", fontSize:"18px", outline:"none", fontFamily:"monospace", letterSpacing:"0.3em", textAlign:"center" }} />
+              </div>
+              <div style={{ fontSize:"9px", color:"#555", marginTop:"6px" }}>Send this PIN to members after they purchase. They enter it to unlock the VIP Lounge.</div>
+            </div>
+          </ASection>
+
+          <div style={{ padding:"12px 14px", borderRadius:"11px", background:"rgba(255,214,10,0.06)", border:"1px solid rgba(255,214,10,0.2)", fontSize:"11px", color:"#bbb", lineHeight:1.6 }}>
+            <strong style={{ color:"#FFD60A" }}>How it works:</strong> After purchase, email your member their PIN manually (or use Stripe → Customer → Custom fields). They visit the app, tap MEMBERS, enter their PIN, and instantly unlock the VIP Lounge with all your exclusive content.
+          </div>
+        </div>
+      )}
+
+      {/* ── VIP CONTENT ── */}
+      {memTab==="content" && (
+        <div>
+          <div style={{ fontSize:"11px", color:"#777", marginBottom:"16px" }}>Manage what members see inside the VIP Lounge. Add videos, audio, downloads, messages, and links.</div>
+
+          {/* ADD ITEM FORM */}
+          <div style={{ padding:"14px", borderRadius:"12px", background:"rgba(255,214,10,0.06)", border:"1px solid rgba(255,214,10,0.2)", marginBottom:"16px" }}>
+            <div style={{ fontSize:"10px", color:"#FFD60A", letterSpacing:"0.2em", fontFamily:"monospace", marginBottom:"12px" }}>+ ADD CONTENT ITEM</div>
+
+            {/* TYPE PICKER */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"5px", marginBottom:"12px" }}>
+              {TYPE_OPTIONS.map(t=>(
+                <div key={t.val} onClick={()=>setNewItem(p=>({...p,type:t.val}))}
+                  style={{ padding:"8px 10px", borderRadius:"8px", cursor:"pointer", border:newItem.type===t.val?"1px solid #FFD60A":"1px solid rgba(255,255,255,0.07)", background:newItem.type===t.val?"rgba(255,214,10,0.1)":"rgba(255,255,255,0.02)" }}>
+                  <div style={{ fontSize:"11px", fontWeight:"700", color:newItem.type===t.val?"#FFD60A":"#777" }}>{t.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display:"flex", gap:"8px", marginBottom:"8px" }}>
+              <input value={newItem.icon} onChange={e=>setNewItem(p=>({...p,icon:e.target.value}))} placeholder="Icon" maxLength={2}
+                style={{ width:"52px", padding:"9px 10px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"8px", color:"#ddd", fontSize:"18px", outline:"none", textAlign:"center" }} />
+              <input value={newItem.title} onChange={e=>setNewItem(p=>({...p,title:e.target.value}))} placeholder="Title *"
+                style={{ flex:1, padding:"9px 12px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"8px", color:"#ddd", fontSize:"12px", outline:"none", fontFamily:"monospace" }} />
+            </div>
+
+            {newItem.type==="message" && (
+              <textarea value={newItem.body} onChange={e=>setNewItem(p=>({...p,body:e.target.value}))} placeholder="Message body..." rows={3}
+                style={{ width:"100%", padding:"9px 12px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"8px", color:"#ddd", fontSize:"12px", outline:"none", fontFamily:"monospace", resize:"none", lineHeight:1.5, marginBottom:"8px" }} />
+            )}
+            {(newItem.type==="video"||newItem.type==="audio"||newItem.type==="link") && (
+              <input value={newItem.url} onChange={e=>setNewItem(p=>({...p,url:e.target.value}))} placeholder="URL (YouTube, direct link, etc.)"
+                style={{ width:"100%", padding:"9px 12px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"8px", color:"#ddd", fontSize:"12px", outline:"none", fontFamily:"monospace", marginBottom:"8px" }} />
+            )}
+            {newItem.type==="download" && (
+              <>
+                <input value={newItem.url} onChange={e=>setNewItem(p=>({...p,url:e.target.value}))} placeholder="Download URL"
+                  style={{ width:"100%", padding:"9px 12px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"8px", color:"#ddd", fontSize:"12px", outline:"none", fontFamily:"monospace", marginBottom:"8px" }} />
+                <input value={newItem.fileName} onChange={e=>setNewItem(p=>({...p,fileName:e.target.value}))} placeholder="File name (e.g. exclusive-track.mp3)"
+                  style={{ width:"100%", padding:"9px 12px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"8px", color:"#ddd", fontSize:"12px", outline:"none", fontFamily:"monospace", marginBottom:"8px" }} />
+              </>
+            )}
+            <input value={newItem.desc} onChange={e=>setNewItem(p=>({...p,desc:e.target.value}))} placeholder="Short description (optional)"
+              style={{ width:"100%", padding:"9px 12px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"8px", color:"#ddd", fontSize:"11px", outline:"none", fontFamily:"monospace", marginBottom:"10px" }} />
+
+            <button onClick={addItem} disabled={!newItem.title.trim()}
+              style={{ width:"100%", padding:"11px", borderRadius:"9px", border:"none", background:newItem.title.trim()?"linear-gradient(135deg,#FFD60A,#FF6B35)":"rgba(255,255,255,0.05)", color:newItem.title.trim()?"#000":"#555", fontSize:"12px", fontWeight:"900", cursor:newItem.title.trim()?"pointer":"not-allowed", letterSpacing:"0.1em" }}>
+              + ADD TO LOUNGE
+            </button>
+          </div>
+
+          {/* CONTENT LIST */}
+          <div style={{ fontSize:"9px", letterSpacing:"0.3em", color:"#555", fontFamily:"monospace", marginBottom:"10px" }}>CURRENT LOUNGE CONTENT ({vipContent.length} items)</div>
+          {vipContent.length===0 && <div style={{ textAlign:"center", padding:"24px", color:"#484848", fontSize:"12px" }}>No content yet. Add items above.</div>}
+          {vipContent.map((item,i)=>(
+            <div key={item.id||i} style={{ display:"flex", alignItems:"center", gap:"10px", padding:"12px 14px", marginBottom:"8px", borderRadius:"10px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)" }}>
+              <span style={{ fontSize:"20px", flexShrink:0 }}>{item.icon||"⭐"}</span>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:"12px", fontWeight:"700", color:"#ddd", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.title}</div>
+                <div style={{ fontSize:"9px", color:"#555", fontFamily:"monospace" }}>{item.type?.toUpperCase()}</div>
+              </div>
+              <button onClick={()=>removeItem(item.id)} style={{ padding:"5px 9px", borderRadius:"7px", border:"1px solid rgba(255,59,48,0.3)", background:"rgba(255,59,48,0.07)", color:"#FF3B30", fontSize:"11px", cursor:"pointer" }}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
 
 // ─── ADMIN: EMAIL LIST TAB ────────────────────────────────────────────────────
 function EmailListAdminTab({ cfg, setCfg }) {
@@ -6303,6 +7360,15 @@ function LinkInBioAdminTab({ cfg, setCfg }) {
 }
 
 
+function BackButton({ onBack, label="HOME" }) {
+  return (
+    <button onClick={onBack}
+      style={{ display:"flex", alignItems:"center", gap:"7px", padding:"8px 14px", margin:"12px 16px 0", borderRadius:"20px", border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.04)", color:"#aaa", fontSize:"10px", fontWeight:"700", fontFamily:"monospace", letterSpacing:"0.15em", cursor:"pointer", width:"fit-content", transition:"all 0.2s" }}>
+      <span style={{ fontSize:"14px" }}>←</span> {label}
+    </button>
+  );
+}
+
 function SH({ icon, title, accent, sub }) {
   return (
     <div style={{ marginBottom:"24px" }}>
@@ -6325,7 +7391,7 @@ function BSection({ label, children }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🔥 EVENTS SHOWCASE SCREEN — PUBLIC
 // ═══════════════════════════════════════════════════════════════════════════════
-function EventsScreen({ config }) {
+function EventsScreen({ config, goHome }) {
   const pc     = config.brand.primaryColor;
   const ac     = config.brand.accentColor;
   const events = (config.booking?.events || []).filter(e => e.date >= new Date().toISOString().slice(0,10));
@@ -6463,6 +7529,7 @@ function EventsScreen({ config }) {
   // MAIN EVENTS LIST
   return (
     <div style={{ paddingBottom:"32px" }}>
+      <BackButton onBack={goHome} />
 
       {/* ── CINEMATIC HERO ── */}
       <div style={{ position:"relative", overflow:"hidden", minHeight:"300px", display:"flex", alignItems:"flex-end" }}>
@@ -7397,7 +8464,7 @@ const MERCH_PRODUCTS = [
 
 const MERCH_CATEGORIES = ["All","Digital","Apparel","Accessories","Collectibles"];
 
-function MerchStore({ config }) {
+function MerchStore({ config, goHome }) {
   const [category,  setCategory]  = useState("All");
   const [cart,      setCart]      = useState([]);
   const [screen,    setScreen]    = useState("shop");
@@ -7445,6 +8512,7 @@ function MerchStore({ config }) {
   if (screen === "confirm") {
     return (
       <div style={{ padding:"60px 24px", textAlign:"center" }}>
+      <BackButton onBack={goHome} />
         <div style={{ fontSize:"56px", marginBottom:"20px" }}>{hasDigitalItems && !hasPhysicalItems ? "⚡" : "🎉"}</div>
         <div style={{ fontSize:"22px", fontWeight:"900", marginBottom:"8px", background:`linear-gradient(135deg,${pc},${ac})`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>
           {hasDigitalItems && !hasPhysicalItems ? "DOWNLOAD READY!" : "ORDER PLACED!"}
