@@ -6,8 +6,8 @@ const ADMIN_PASS = "YourBrand2025!";
 
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 // 🔧 PASTE YOUR SUPABASE CREDENTIALS HERE (from supabase.com → Project Settings → API)
-const SUPABASE_URL  = "https://tqhiaslgmmtwhnuszqxo.supabase.co";   // e.g. https://xxxx.supabase.co
-const SUPABASE_KEY  = "sb_publishable_mNnL9ywbzlkAD8WDvAEv8w_DzlQaeOA"; // starts with "eyJ..."
+const SUPABASE_URL  = "YOUR_SUPABASE_URL";   // e.g. https://xxxx.supabase.co
+const SUPABASE_KEY  = "YOUR_SUPABASE_ANON_KEY"; // starts with "eyJ..."
 
 // Lightweight Supabase client — no npm package needed
 const sb = {
@@ -5857,6 +5857,89 @@ function ChatAdminTab({ cfg, setCfg }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // 1 ─── FAN MEMBERSHIP SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
+// ─── VIP LIVE HELPERS ─────────────────────────────────────────────────────────
+
+// Normalise any YouTube/Vimeo URL into a proper embed src
+function normalizeEmbedUrl(url) {
+  if (!url) return "";
+  let src = url.trim();
+  // YouTube watch → embed
+  src = src.replace(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/, "youtube.com/embed/$1");
+  // youtu.be short → embed
+  src = src.replace(/youtu\.be\/([a-zA-Z0-9_-]+)/, "youtube.com/embed/$1");
+  // Vimeo standard → embed
+  src = src.replace(/vimeo\.com\/(\d+)/, "player.vimeo.com/video/$1");
+  // Ensure https
+  if (!src.startsWith("http")) src = "https://" + src;
+  // Add autoplay param if missing
+  if (src.includes("youtube.com/embed") && !src.includes("autoplay")) {
+    src += (src.includes("?") ? "&" : "?") + "autoplay=1&mute=1";
+  }
+  if (src.includes("player.vimeo.com") && !src.includes("autoplay")) {
+    src += (src.includes("?") ? "&" : "?") + "autoplay=1&muted=1";
+  }
+  return src;
+}
+
+// Self-contained camera component for the Members Lounge
+function VipLiveCameraView() {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [status, setStatus] = useState("requesting"); // requesting | active | denied
+
+  useEffect(() => {
+    let cancelled = false;
+    navigator.mediaDevices.getUserMedia({ video: { facingMode:"user" }, audio: false })
+      .then(stream => {
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+        setStatus("active");
+      })
+      .catch(() => { if (!cancelled) setStatus("denied"); });
+
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
+  }, []);
+
+  return (
+    <div style={{ position:"relative", background:"#000", aspectRatio:"16/9" }}>
+      <video ref={videoRef} muted playsInline autoPlay
+        style={{ width:"100%", height:"100%", objectFit:"cover", display:status==="active"?"block":"none" }} />
+
+      {status === "requesting" && (
+        <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"10px", background:"#0a0a0f" }}>
+          <div style={{ width:"32px", height:"32px", borderRadius:"50%", border:"3px solid rgba(255,59,48,0.3)", borderTop:"3px solid #FF3B30", animation:"spin 1s linear infinite" }} />
+          <div style={{ fontSize:"12px", color:"#777" }}>Starting camera...</div>
+        </div>
+      )}
+
+      {status === "denied" && (
+        <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"10px", background:"#0a0a0f", padding:"20px" }}>
+          <div style={{ fontSize:"28px" }}>🚫</div>
+          <div style={{ fontSize:"12px", color:"#FF3B30", fontWeight:"700" }}>Camera access denied</div>
+          <div style={{ fontSize:"10px", color:"#555", textAlign:"center", lineHeight:1.6 }}>Allow camera access in your browser settings and refresh the page</div>
+        </div>
+      )}
+
+      {status === "active" && (
+        <div style={{ position:"absolute", top:"10px", left:"10px", display:"flex", alignItems:"center", gap:"5px", padding:"4px 10px", borderRadius:"10px", background:"rgba(255,59,48,0.85)" }}>
+          <div style={{ width:"6px", height:"6px", borderRadius:"50%", background:"#fff", animation:"livePulse 1s infinite" }} />
+          <span style={{ fontSize:"9px", fontWeight:"900", color:"#fff", letterSpacing:"0.15em" }}>LIVE</span>
+        </div>
+      )}
+
+      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+
 function MembershipScreen({ config, goHome }) {
   const pc = config.brand.primaryColor;
   const ac = config.brand.accentColor;
@@ -5938,31 +6021,48 @@ function MembershipScreen({ config, goHome }) {
                   <div style={{ width:"8px", height:"8px", borderRadius:"50%", background:"#FF3B30", boxShadow:"0 0 8px #FF3B30", animation:"livePulse 1s ease-in-out infinite", flexShrink:0 }} />
                   <span style={{ fontSize:"10px", fontWeight:"900", color:"#FF3B30", letterSpacing:"0.2em", fontFamily:"monospace" }}>🔴 VIP LIVE</span>
                 </div>
-                <div style={{ fontSize:"9px", color:"rgba(255,255,255,0.4)", fontFamily:"monospace" }}>
-                  MEMBERS ONLY
-                </div>
+                <div style={{ fontSize:"9px", color:"rgba(255,255,255,0.4)", fontFamily:"monospace" }}>👑 MEMBERS ONLY</div>
               </div>
 
-              {/* STREAM CONTENT */}
-              {m.vipLive.streamType === "embed" && m.vipLive.embedUrl ? (
-                <div style={{ aspectRatio:"16/9", background:"#000" }}>
-                  <iframe src={m.vipLive.embedUrl} style={{ width:"100%", height:"100%", border:"none" }} allow="autoplay; fullscreen" allowFullScreen />
-                </div>
-              ) : m.vipLive.streamType === "camera" ? (
-                <div style={{ aspectRatio:"16/9", background:"#0a0a0f", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"8px" }}>
-                  <div style={{ fontSize:"36px" }}>📹</div>
-                  <div style={{ fontSize:"12px", color:"#777" }}>Camera stream active</div>
-                  <div style={{ fontSize:"10px", color:"#555" }}>Stream live from Admin → 👑🔴 VIP LIVE</div>
-                </div>
-              ) : (
-                <div style={{ aspectRatio:"16/9", background:"#0a0a0f", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"8px" }}>
-                  <div style={{ fontSize:"36px" }}>⚡</div>
-                  <div style={{ fontSize:"12px", color:"#777" }}>RTMP Stream broadcasting</div>
+              {/* ── CAMERA STREAM ── */}
+              {m.vipLive.streamType === "camera" && <VipLiveCameraView />}
+
+              {/* ── EMBED STREAM ── */}
+              {m.vipLive.streamType === "embed" && (
+                m.vipLive.embedUrl?.trim() ? (
+                  <div style={{ position:"relative", paddingBottom:"56.25%", background:"#000" }}>
+                    <iframe
+                      src={normalizeEmbedUrl(m.vipLive.embedUrl)}
+                      style={{ position:"absolute", inset:0, width:"100%", height:"100%", border:"none" }}
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                ) : (
+                  <div style={{ aspectRatio:"16/9", background:"#0a0a0f", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"8px", padding:"20px" }}>
+                    <div style={{ fontSize:"28px" }}>🔗</div>
+                    <div style={{ fontSize:"12px", color:"#777", textAlign:"center" }}>No embed URL set — go to Admin → 👑🔴 VIP LIVE and paste your YouTube or Vimeo live embed URL</div>
+                  </div>
+                )
+              )}
+
+              {/* ── RTMP STREAM ── */}
+              {m.vipLive.streamType === "rtmp" && (
+                <div style={{ aspectRatio:"16/9", background:"linear-gradient(135deg,#0a0008,#0a0a0f)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"12px", padding:"24px 20px" }}>
+                  <div style={{ display:"flex", gap:"3px", alignItems:"flex-end" }}>
+                    {[1,2,3,4,5].map(i=>(
+                      <div key={i} style={{ width:"5px", borderRadius:"3px", background:"#FF3B30", animation:`eq${i<=4?i:4} 0.6s ease-in-out infinite alternate`, height:`${[14,22,18,28,20][i-1]}px` }} />
+                    ))}
+                  </div>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:"13px", fontWeight:"800", color:"#fff", marginBottom:"4px" }}>Broadcasting via RTMP</div>
+                    <div style={{ fontSize:"11px", color:"#555", lineHeight:1.6 }}>Your stream is live through OBS / Streamlabs.<br/>Open your stream URL in a browser to watch.</div>
+                  </div>
                 </div>
               )}
 
               {/* STREAM INFO */}
-              <div style={{ padding:"12px 14px", background:"rgba(0,0,0,0.4)" }}>
+              <div style={{ padding:"12px 14px", background:"rgba(0,0,0,0.5)" }}>
                 <div style={{ fontSize:"14px", fontWeight:"800", color:"#fff", marginBottom:"3px" }}>{m.vipLive.streamTitle || "VIP Live Stream"}</div>
                 {m.vipLive.streamDesc && <div style={{ fontSize:"11px", color:"#888", lineHeight:1.5 }}>{m.vipLive.streamDesc}</div>}
               </div>
@@ -6565,8 +6665,16 @@ function VipLiveAdminTab({ cfg, setCfg, setIsLiveNow }) {
           {/* EMBED URL */}
           {streamType==="embed" && (
             <div>
-              <AField label="YouTube / Vimeo Live Embed URL" value={embedUrl} onChange={setEmbedUrl} placeholder="https://www.youtube.com/embed/LIVE_ID?autoplay=1" />
-              <div style={{ fontSize:"9px", color:"#555" }}>Get this from YouTube Studio → Go Live → Share → Embed</div>
+              <AField label="YouTube / Vimeo Live URL" value={embedUrl} onChange={setEmbedUrl} placeholder="https://youtube.com/watch?v=... or embed/..." />
+              {embedUrl.trim() && (
+                <div style={{ padding:"8px 10px", borderRadius:"8px", background:"rgba(0,245,212,0.07)", border:"1px solid rgba(0,245,212,0.2)", fontSize:"10px", color:"#00F5D4", marginBottom:"6px", wordBreak:"break-all", fontFamily:"monospace" }}>
+                  ▶ Will play: {normalizeEmbedUrl(embedUrl)}
+                </div>
+              )}
+              <div style={{ fontSize:"9px", color:"#555", lineHeight:1.6 }}>
+                Paste any YouTube or Vimeo URL — watch links, embed links, or live links all work.<br/>
+                YouTube: Go Live → Share → Copy the link.
+              </div>
             </div>
           )}
 
