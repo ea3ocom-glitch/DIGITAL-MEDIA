@@ -6,8 +6,8 @@ const ADMIN_PASS = "YourBrand2025!";
 
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 // 🔧 PASTE YOUR SUPABASE CREDENTIALS HERE (from supabase.com → Project Settings → API)
-const SUPABASE_URL  = "YOUR_SUPABASE_URL";   // e.g. https://xxxx.supabase.co
-const SUPABASE_KEY  = "YOUR_SUPABASE_ANON_KEY"; // starts with "eyJ..."
+const SUPABASE_URL  = "https://tqhiaslgmmtwhnuszqxo.supabase.co";   // e.g. https://xxxx.supabase.co
+const SUPABASE_KEY  = "sb_publishable_mNnL9ywbzlkAD8WDvAEv8w_DzlQaeOA"; // starts with "eyJ..."
 
 // Lightweight Supabase client — no npm package needed
 const sb = {
