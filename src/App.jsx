@@ -6,8 +6,8 @@ const ADMIN_PASS = "YourBrand2025!";
 
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 // 🔧 PASTE YOUR SUPABASE CREDENTIALS HERE (from supabase.com → Project Settings → API)
-const SUPABASE_URL  = "https://tqhiaslgmmtwhnuszqxo.supabase.co";   // e.g. https://xxxx.supabase.co
-const SUPABASE_KEY  = "sb_publishable_mNnL9ywbzlkAD8WDvAEv8w_DzlQaeOA"; // starts with "eyJ..."
+const SUPABASE_URL  = "YOUR_SUPABASE_URL";   // e.g. https://xxxx.supabase.co
+const SUPABASE_KEY  = "YOUR_SUPABASE_ANON_KEY"; // starts with "eyJ..."
 
 // Lightweight Supabase client — no npm package needed
 const sb = {
@@ -1088,7 +1088,14 @@ function LogoDisplay({ config, size = 52 }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function MediaEmpire() {
   const [appState,   setAppState]  = useState("public");
-  const [config,     setConfig]    = useState(DEFAULT_CONFIG);
+  const [config,     setConfig]    = useState(() => {
+    // Load from localStorage immediately — works even without Supabase
+    try {
+      const saved = localStorage.getItem("media_empire_config");
+      if (saved) return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+    } catch {}
+    return DEFAULT_CONFIG;
+  });
   const [screen,     setScreen]    = useState("home");
   const [prevScreen, setPrevScreen]= useState(null);
   const [transitioning, setTransitioning] = useState(false);
@@ -1128,29 +1135,39 @@ export default function MediaEmpire() {
     }, 180);
   };
 
-  // ── LOAD CONFIG FROM SUPABASE ON STARTUP ──────────────────────────────────
+  // ── LOAD CONFIG ON STARTUP ────────────────────────────────────────────────
+  // localStorage already loaded above in useState initializer.
+  // Now try Supabase — if connected, it takes priority (most up-to-date).
   useEffect(() => {
     if (!sb.ready) return;
     setDbStatus("loading");
     sb.loadConfig().then(saved => {
       if (saved) {
         setConfig(saved);
+        // Mirror Supabase data into localStorage for offline fallback
+        try { localStorage.setItem("media_empire_config", JSON.stringify(saved)); } catch {}
         setDbStatus("connected");
         console.log("✅ Config loaded from Supabase");
       } else {
         setDbStatus("connected");
-        console.log("✅ Supabase connected — using default config");
+        console.log("✅ Supabase connected — using saved config");
       }
     }).catch(() => setDbStatus("error"));
   }, []);
 
-  // ── SAVE CONFIG WRAPPER — saves to state AND Supabase ─────────────────────
+  // ── SAVE CONFIG — always writes localStorage + Supabase if connected ───────
   const saveConfigToDB = async (newConfig) => {
-    setConfig(newConfig);
+    const stamped = { ...newConfig, _savedAt: new Date().toISOString() };
+    setConfig(stamped);
+    // Always save to localStorage immediately (survives refresh, no setup needed)
+    try { localStorage.setItem("media_empire_config", JSON.stringify(stamped)); } catch {}
+    // Also save to Supabase if connected (cross-device sync)
     if (sb.ready) {
-      const ok = await sb.saveConfig(newConfig);
-      if (ok) console.log("✅ Config saved to Supabase");
-      else    console.warn("⚠ Supabase save failed — saved locally only");
+      const ok = await sb.saveConfig(stamped);
+      if (ok) console.log("✅ Config saved to Supabase + localStorage");
+      else    console.warn("⚠ Supabase save failed — saved to localStorage only");
+    } else {
+      console.log("✅ Config saved to localStorage");
     }
   };
 
@@ -2664,6 +2681,52 @@ function TickerAdminTab({ cfg, setCfg }) {
 }
 
 // ─── DATABASE TAB ─────────────────────────────────────────────────────────────
+// ─── LOCAL CACHE STATUS ───────────────────────────────────────────────────────
+function LocalCacheStatus() {
+  const [cacheSize,    setCacheSize]    = useState("—");
+  const [cacheAge,     setCacheAge]     = useState("—");
+  const [cleared,      setCleared]      = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("media_empire_config");
+      if (raw) {
+        const kb = (new Blob([raw]).size / 1024).toFixed(1);
+        setCacheSize(kb + " KB");
+        const cfg = JSON.parse(raw);
+        setCacheAge(cfg._savedAt ? new Date(cfg._savedAt).toLocaleString() : "Unknown");
+      } else {
+        setCacheSize("Empty"); setCacheAge("Never saved");
+      }
+    } catch { setCacheSize("Error"); }
+  }, [cleared]);
+
+  const clearCache = () => {
+    try { localStorage.removeItem("media_empire_config"); } catch {}
+    setCleared(true);
+    setCacheSize("Empty"); setCacheAge("Never saved");
+    setTimeout(() => setCleared(false), 2000);
+  };
+
+  return (
+    <div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"12px" }}>
+        <div style={{ padding:"12px", borderRadius:"10px", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", textAlign:"center" }}>
+          <div style={{ fontSize:"14px", fontWeight:"800", color:"#FF6B35" }}>{cacheSize}</div>
+          <div style={{ fontSize:"8px", color:"#555", letterSpacing:"0.2em", marginTop:"2px" }}>CACHE SIZE</div>
+        </div>
+        <div style={{ padding:"12px", borderRadius:"10px", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", textAlign:"center" }}>
+          <div style={{ fontSize:"11px", fontWeight:"700", color:"#00F5D4" }}>{cacheAge === "Never saved" ? "—" : "✓ Saved"}</div>
+          <div style={{ fontSize:"8px", color:"#555", letterSpacing:"0.2em", marginTop:"2px" }}>STATUS</div>
+        </div>
+      </div>
+      <button onClick={clearCache} style={{ width:"100%", padding:"10px", borderRadius:"10px", border:"1px solid rgba(255,59,48,0.3)", background:cleared?"rgba(0,245,212,0.08)":"rgba(255,59,48,0.07)", color:cleared?"#00F5D4":"#FF3B30", fontSize:"11px", cursor:"pointer", transition:"all 0.3s" }}>
+        {cleared ? "✓ Cache Cleared — Reload to use defaults" : "🗑 Clear Local Cache (resets to defaults on next load)"}
+      </button>
+    </div>
+  );
+}
+
 function DatabaseTab({ dbStatus }) {
   const [sbUrl,   setSbUrl]   = useState(SUPABASE_URL   !== "YOUR_SUPABASE_URL"   ? SUPABASE_URL   : "");
   const [sbKey,   setSbKey]   = useState(SUPABASE_KEY   !== "YOUR_SUPABASE_ANON_KEY" ? SUPABASE_KEY : "");
@@ -2791,6 +2854,16 @@ function DatabaseTab({ dbStatus }) {
             </div>
           </div>
         ))}
+      </ASection>
+
+      {/* LOCAL CACHE */}
+      <ASection title="Local Cache (Offline Storage)" icon="💾" color="#FF6B35">
+        <div style={{ padding:"12px 14px", borderRadius:"10px", marginBottom:"14px", background:"rgba(255,107,53,0.07)", border:"1px solid rgba(255,107,53,0.2)" }}>
+          <div style={{ fontSize:"11px", color:"#ccc", lineHeight:1.7 }}>
+            <strong style={{ color:"#FF6B35" }}>How it works:</strong> Every time you tap SAVE ALL, your config is written to your browser's localStorage. This means your settings survive page refreshes automatically — no Supabase required. When Supabase IS connected, it syncs to the database too for cross-device access.
+          </div>
+        </div>
+        <LocalCacheStatus />
       </ASection>
     </div>
   );
