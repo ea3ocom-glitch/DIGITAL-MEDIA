@@ -6,22 +6,23 @@ const ADMIN_PASS = "YourBrand2025!";
 
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 // 🔧 PASTE YOUR SUPABASE CREDENTIALS HERE (from supabase.com → Project Settings → API)
-const SUPABASE_URL  = "YOUR_SUPABASE_URL";   // e.g. https://xxxx.supabase.co
-const SUPABASE_KEY  = "YOUR_SUPABASE_ANON_KEY"; // starts with "eyJ..."
+const SUPABASE_URL  = "https://tqhiaslgmmtwhnuszqxo.supabase.co";
+const SUPABASE_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxaGlhc2xnbW10d2hudXN6cXhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MjgxODYsImV4cCI6MjA5MDMwNDE4Nn0.fYTQTSZMCu0jaGDQBml601cCa9GST2ua2hHA4IRknPo";
 
-// ─── RUNTIME SUPABASE CONFIG — reads from localStorage so users can set keys from UI ─
+// ─── RUNTIME SUPABASE CONFIG ──────────────────────────────────────────────────
 function getSbCreds() {
+  // Hardcoded credentials take priority
+  if (SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_KEY !== "YOUR_SUPABASE_ANON_KEY") {
+    return { url: SUPABASE_URL, key: SUPABASE_KEY };
+  }
+  // Fall back to credentials saved from the admin UI
   try {
     const stored = localStorage.getItem("me_sb_creds");
     if (stored) {
       const { url, key } = JSON.parse(stored);
-      if (url && key && url !== "YOUR_SUPABASE_URL") return { url, key };
+      if (url && key && url.startsWith("http")) return { url, key };
     }
   } catch {}
-  // Fall back to hardcoded constants
-  if (SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_KEY !== "YOUR_SUPABASE_ANON_KEY") {
-    return { url: SUPABASE_URL, key: SUPABASE_KEY };
-  }
   return null;
 }
 

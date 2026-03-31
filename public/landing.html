@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Media Empire — Own Your Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700;900&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --orange: #FF6B35;
+    --purple: #C77DFF;
+    --gold: #FFD60A;
+    --teal: #00F5D4;
+    --bg: #050508;
+    --card: rgba(255,255,255,0.03);
+    --border: rgba(255,255,255,0.07);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: #F0EDE8;
+    font-family: 'DM Sans', sans-serif;
+    overflow-x: hidden;
+    cursor: default;
+  }
+
+  /* ── NOISE TEXTURE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 900;
+    padding: 20px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    backdrop-filter: blur(20px);
+    background: rgba(5,5,8,0.7);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .nav-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    letter-spacing: 0.15em;
+    background: linear-gradient(135deg, var(--orange), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .nav-cta {
+    padding: 9px 22px;
+    border-radius: 24px;
+    border: 1px solid rgba(255,107,53,0.5);
+    background: rgba(255,107,53,0.1);
+    color: var(--orange);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.3s;
+  }
+
+  .nav-cta:hover {
+    background: var(--orange);
+    color: #000;
+    box-shadow: 0 0 24px rgba(255,107,53,0.4);
+  }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    padding: 120px 24px 80px;
+  }
+
+  /* Radial glow blobs */
+  .hero::before {
+    content: '';
+    position: absolute;
+    width: 800px; height: 800px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,107,53,0.12) 0%, transparent 70%);
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(199,125,255,0.1) 0%, transparent 70%);
+    bottom: 0; right: -200px;
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.45em;
+    color: var(--orange);
+    margin-bottom: 24px;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.2s forwards;
+  }
+
+  .hero-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(72px, 14vw, 160px);
+    line-height: 0.9;
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+    opacity: 0;
+    animation: fadeUp 0.9s ease 0.4s forwards;
+  }
+
+  .hero-title span {
+    display: block;
+    background: linear-gradient(135deg, #fff 30%, var(--orange) 60%, var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-title .word-empire {
+    background: linear-gradient(135deg, var(--orange), var(--gold), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-sub {
+    font-size: clamp(16px, 2.5vw, 22px);
+    color: rgba(255,255,255,0.5);
+    font-weight: 300;
+    max-width: 580px;
+    line-height: 1.6;
+    margin-bottom: 48px;
+    opacity: 0;
+    animation: fadeUp 0.9s ease 0.6s forwards;
+  }
+
+  .hero-sub strong {
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+    opacity: 0;
+    animation: fadeUp 0.9s ease 0.8s forwards;
+    margin-bottom: 80px;
+  }
+
+  .btn-primary {
+    padding: 16px 36px;
+    border-radius: 50px;
+    border: none;
+    background: linear-gradient(135deg, var(--orange), var(--purple));
+    color: #fff;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.3s;
+    box-shadow: 0 8px 32px rgba(255,107,53,0.35);
+    display: inline-block;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 48px rgba(255,107,53,0.5);
+  }
+
+  .btn-ghost {
+    padding: 16px 36px;
+    border-radius: 50px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.7);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.3s;
+    display: inline-block;
+  }
+
+  .btn-ghost:hover {
+    border-color: rgba(255,255,255,0.35);
+    color: #fff;
+    background: rgba(255,255,255,0.07);
+  }
+
+  /* Stats bar */
+  .hero-stats {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--card);
+    opacity: 0;
+    animation: fadeUp 0.9s ease 1s forwards;
+    backdrop-filter: blur(20px);
+  }
+
+  .stat {
+    padding: 20px 36px;
+    text-align: center;
+    border-right: 1px solid var(--border);
+  }
+
+  .stat:last-child { border-right: none; }
+
+  .stat-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 0.05em;
+    background: linear-gradient(135deg, var(--orange), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.35em;
+    color: rgba(255,255,255,0.35);
+    margin-top: 4px;
+  }
+
+  /* Floating particles */
+  .particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    animation: particleFloat linear infinite;
+  }
+
+  @keyframes particleFloat {
+    0%   { opacity: 0; transform: translateY(0) translateX(0); }
+    10%  { opacity: 0.8; }
+    90%  { opacity: 0.3; }
+    100% { opacity: 0; transform: translateY(-120px) translateX(var(--drift)); }
+  }
+
+  /* ── SECTION BASE ── */
+  section { position: relative; }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 40px;
+  }
+
+  .section-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5em;
+    color: var(--orange);
+    margin-bottom: 16px;
+    display: block;
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(48px, 8vw, 88px);
+    line-height: 0.95;
+    letter-spacing: 0.02em;
+    margin-bottom: 24px;
+  }
+
+  .section-body {
+    font-size: 17px;
+    color: rgba(255,255,255,0.5);
+    font-weight: 300;
+    line-height: 1.7;
+    max-width: 520px;
+  }
+
+  /* ── MARQUEE ── */
+  .marquee-section {
+    padding: 32px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+    background: rgba(255,255,255,0.01);
+  }
+
+  .marquee-track {
+    display: flex;
+    gap: 60px;
+    width: max-content;
+    animation: marquee 25s linear infinite;
+  }
+
+  .marquee-item {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.35em;
+    color: rgba(255,255,255,0.25);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .marquee-dot {
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--orange);
+    flex-shrink: 0;
+  }
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  /* ── FEATURES GRID ── */
+  .features-section {
+    padding: 120px 0;
+  }
+
+  .features-header {
+    text-align: center;
+    margin-bottom: 80px;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .feature-card {
+    padding: 36px 32px;
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--accent, rgba(255,107,53,0.06)), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .feature-card:hover::before { opacity: 1; }
+  .feature-card:hover { border-color: rgba(255,255,255,0.12); }
+
+  .feature-icon {
+    font-size: 28px;
+    margin-bottom: 16px;
+    display: block;
+  }
+
+  .feature-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+
+  .feature-desc {
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.6;
+  }
+
+  /* ── BIG SPLIT SECTION ── */
+  .split-section {
+    padding: 120px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .split-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: center;
+  }
+
+  .split-inner.reverse { direction: rtl; }
+  .split-inner.reverse > * { direction: ltr; }
+
+  /* Phone mockup */
+  .phone-mock {
+    position: relative;
+    display: flex;
+    justify-content: center;
+  }
+
+  .phone-frame {
+    width: 280px;
+    height: 580px;
+    border-radius: 40px;
+    border: 2px solid rgba(255,255,255,0.12);
+    background: #0a0a14;
+    position: relative;
+    overflow: hidden;
+    box-shadow:
+      0 40px 100px rgba(0,0,0,0.7),
+      0 0 0 1px rgba(255,255,255,0.05),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+  .phone-screen {
+    position: absolute;
+    inset: 8px;
+    border-radius: 34px;
+    overflow: hidden;
+    background: #080810;
+  }
+
+  .phone-header {
+    padding: 16px 16px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .phone-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.1em;
+    background: linear-gradient(135deg, var(--orange), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .phone-live {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: #FF3B30;
+  }
+
+  .live-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #FF3B30;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  .phone-hero-img {
+    height: 160px;
+    background: linear-gradient(135deg, rgba(255,107,53,0.3), rgba(199,125,255,0.2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .phone-hero-img::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(45deg, rgba(255,107,53,0.03) 0px, transparent 1px, transparent 20px);
+  }
+
+  .phone-brand-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 0.1em;
+    color: #fff;
+    position: relative;
+    z-index: 1;
+  }
+
+  .phone-tagline {
+    font-size: 8px;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.3em;
+    font-family: 'Barlow Condensed', sans-serif;
+    position: relative;
+    z-index: 1;
+  }
+
+  .phone-nav {
+    display: flex;
+    padding: 8px 10px;
+    gap: 3px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    overflow: hidden;
+  }
+
+  .phone-nav-item {
+    flex: 1;
+    padding: 5px 3px;
+    text-align: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 7px;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.3);
+    border-bottom: 1px solid transparent;
+    white-space: nowrap;
+  }
+
+  .phone-nav-item.active {
+    color: var(--orange);
+    border-color: var(--orange);
+  }
+
+  .phone-content {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .phone-card {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .phone-card-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: rgba(255,107,53,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .phone-card-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 0.08em;
+  }
+
+  .phone-card-sub {
+    font-size: 9px;
+    color: rgba(255,255,255,0.3);
+    margin-top: 1px;
+  }
+
+  /* Phone LED glow */
+  .phone-led-top, .phone-led-bottom, .phone-led-left, .phone-led-right {
+    position: absolute;
+    background: linear-gradient(90deg, transparent, var(--orange), var(--purple), transparent);
+    animation: ledPulse 3s ease-in-out infinite;
+  }
+  .phone-led-top    { top: 8px; left: 8px; right: 8px; height: 1px; border-radius: 1px; }
+  .phone-led-bottom { bottom: 8px; left: 8px; right: 8px; height: 1px; border-radius: 1px; }
+  .phone-led-left   { left: 8px; top: 8px; bottom: 8px; width: 1px; border-radius: 1px; background: linear-gradient(180deg, transparent, var(--orange), var(--purple), transparent); }
+  .phone-led-right  { right: 8px; top: 8px; bottom: 8px; width: 1px; border-radius: 1px; background: linear-gradient(180deg, transparent, var(--purple), var(--orange), transparent); animation-delay: 0.5s; }
+
+  @keyframes ledPulse {
+    0%, 100% { opacity: 0.4; box-shadow: none; }
+    50% { opacity: 1; box-shadow: 0 0 8px rgba(255,107,53,0.6); }
+  }
+
+  /* Phone floating glow */
+  .phone-glow {
+    position: absolute;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,107,53,0.15) 0%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    animation: glowPulse 4s ease-in-out infinite;
+  }
+
+  @keyframes glowPulse {
+    0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  }
+
+  /* ── REVENUE SECTION ── */
+  .revenue-section {
+    padding: 120px 0;
+    background: linear-gradient(180deg, transparent, rgba(255,107,53,0.04), transparent);
+    border-top: 1px solid var(--border);
+  }
+
+  .revenue-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-top: 60px;
+  }
+
+  .revenue-card {
+    padding: 32px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+
+  .revenue-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--orange), var(--purple));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .revenue-card:hover::before { opacity: 1; }
+  .revenue-card:hover {
+    border-color: rgba(255,107,53,0.2);
+    transform: translateY(-4px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+
+  .revenue-emoji { font-size: 32px; margin-bottom: 16px; display: block; }
+
+  .revenue-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+
+  .revenue-desc {
+    font-size: 14px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.6;
+  }
+
+  .revenue-badge {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(255,107,53,0.1);
+    border: 1px solid rgba(255,107,53,0.25);
+    color: var(--orange);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+  }
+
+  /* ── THEMES SHOWCASE ── */
+  .themes-section {
+    padding: 120px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .themes-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 60px;
+    overflow-x: auto;
+    padding-bottom: 16px;
+  }
+
+  .theme-chip {
+    flex-shrink: 0;
+    padding: 28px 32px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    min-width: 200px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+
+  .theme-chip:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  .theme-chip-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+
+  .theme-chip-desc {
+    font-size: 11px;
+    opacity: 0.5;
+    font-weight: 300;
+  }
+
+  /* Theme variants */
+  .theme-dark   { background: #080808; border-color: rgba(255,255,255,0.08); }
+  .theme-dark .theme-chip-name { color: #F0EDE8; }
+
+  .theme-metal  { background: linear-gradient(135deg,#1e1e28,#141420); border-color: rgba(180,180,200,0.15); }
+  .theme-metal .theme-chip-name { color: #E8E8F4; }
+  .theme-metal::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg,rgba(255,255,255,0.015) 0px,transparent 1px,transparent 4px); }
+
+  .theme-corporate { background: #F0F2F5; border-color: rgba(0,0,0,0.1); }
+  .theme-corporate .theme-chip-name { color: #1A1D23; }
+  .theme-corporate .theme-chip-desc { color: #5A6270; }
+  .theme-corporate::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg,#2C5282,#4A90D9); }
+
+  .theme-minimal { background: #FAFAFA; border-color: rgba(0,0,0,0.06); }
+  .theme-minimal .theme-chip-name { color: #0A0A0A; }
+  .theme-minimal .theme-chip-desc { color: #909090; }
+
+  .theme-light  { background: #F4F1EC; border-color: rgba(0,0,0,0.08); }
+  .theme-light .theme-chip-name { color: #111; }
+  .theme-light .theme-chip-desc { color: #888; }
+
+  /* ── BIG STATEMENT ── */
+  .statement-section {
+    padding: 160px 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    border-top: 1px solid var(--border);
+  }
+
+  .statement-section::before {
+    content: '';
+    position: absolute;
+    width: 1000px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(199,125,255,0.08) 0%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .statement-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(56px, 10vw, 120px);
+    line-height: 0.95;
+    letter-spacing: 0.02em;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 32px;
+  }
+
+  .statement-sub {
+    font-size: 20px;
+    color: rgba(255,255,255,0.45);
+    font-weight: 300;
+    max-width: 600px;
+    margin: 0 auto 48px;
+    line-height: 1.7;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── ADMIN PREVIEW ── */
+  .admin-section {
+    padding: 120px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .admin-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 60px;
+  }
+
+  .admin-tab {
+    padding: 18px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.02);
+    text-align: center;
+    transition: all 0.25s;
+    cursor: default;
+  }
+
+  .admin-tab:hover {
+    border-color: rgba(255,107,53,0.3);
+    background: rgba(255,107,53,0.06);
+    transform: translateY(-3px);
+  }
+
+  .admin-tab-icon { font-size: 20px; margin-bottom: 6px; }
+
+  .admin-tab-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.5);
+  }
+
+  /* ── CTA ── */
+  .cta-section {
+    padding: 140px 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    border-top: 1px solid var(--border);
+  }
+
+  .cta-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 100%, rgba(255,107,53,0.1) 0%, transparent 70%);
+  }
+
+  .cta-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(60px, 10vw, 110px);
+    line-height: 0.95;
+    margin-bottom: 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cta-sub {
+    font-size: 18px;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 48px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cta-actions {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    padding: 40px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.15em;
+    background: linear-gradient(135deg, var(--orange), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .footer-copy {
+    font-size: 12px;
+    color: rgba(255,255,255,0.2);
+    font-weight: 300;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── LED BORDER ON PAGE ── */
+  .page-led-top, .page-led-bottom {
+    position: fixed;
+    left: 0; right: 0;
+    height: 2px;
+    z-index: 999;
+    pointer-events: none;
+  }
+
+  .page-led-top {
+    top: 0;
+    background: linear-gradient(90deg, transparent, var(--orange), var(--purple), var(--orange), transparent);
+    animation: ledShift 4s ease-in-out infinite;
+    box-shadow: 0 0 12px rgba(255,107,53,0.5);
+  }
+
+  .page-led-bottom {
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, var(--purple), var(--orange), var(--purple), transparent);
+    animation: ledShift 4s ease-in-out infinite reverse;
+    box-shadow: 0 0 12px rgba(199,125,255,0.5);
+  }
+
+  @keyframes ledShift {
+    0%,100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    nav { padding: 16px 20px; }
+    .container { padding: 0 20px; }
+    .features-grid { grid-template-columns: 1fr; }
+    .split-inner { grid-template-columns: 1fr; gap: 40px; }
+    .split-inner.reverse { direction: ltr; }
+    .revenue-grid { grid-template-columns: 1fr; }
+    .admin-grid { grid-template-columns: repeat(4, 1fr); }
+    .hero-stats { flex-direction: column; }
+    .stat { border-right: none; border-bottom: 1px solid var(--border); }
+    .stat:last-child { border-bottom: none; }
+    footer { flex-direction: column; gap: 12px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LED borders -->
+<div class="page-led-top"></div>
+<div class="page-led-bottom"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">MEDIA EMPIRE</div>
+  <a href="#cta" class="nav-cta">GET THE APP</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="particles" id="particles"></div>
+
+  <div class="hero-eyebrow">◆ Your Complete Digital Media Hub · v3.0</div>
+
+  <h1 class="hero-title">
+    <span>BUILD YOUR</span>
+    <span class="word-empire">EMPIRE</span>
+  </h1>
+
+  <p class="hero-sub">
+    <strong>Music. Shows. Merch. Community. VIP Lives.</strong><br/>
+    One app. Your brand. No algorithm. No platform fees. Direct to your fans — forever.
+  </p>
+
+  <div class="hero-actions">
+    <a href="#cta" class="btn-primary">👑 GET MEDIA EMPIRE</a>
+    <a href="#features" class="btn-ghost">SEE WHAT'S INSIDE →</a>
+  </div>
+
+  <div class="hero-stats">
+    <div class="stat">
+      <div class="stat-num">11</div>
+      <div class="stat-label">PUBLIC SCREENS</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">25</div>
+      <div class="stat-label">ADMIN PANELS</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">8,800+</div>
+      <div class="stat-label">LINES OF CODE</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">5</div>
+      <div class="stat-label">THEMES</div>
+    </div>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-section">
+  <div class="marquee-track" id="marqueeTrack">
+    <div class="marquee-item"><span class="marquee-dot"></span>MUSIC PLAYER</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>VIP LIVE STREAM</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>FAN MEMBERSHIP</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>MERCH STORE</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>BOOKING CALENDAR</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>COMMUNITY CHAT</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>EMAIL CAMPAIGNS</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>EVENTS SHOWCASE</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>LED BORDER</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>ANALYTICS</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>SUPABASE SYNC</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>PUSH NOTIFICATIONS</div>
+    <!-- duplicated for seamless loop -->
+    <div class="marquee-item"><span class="marquee-dot"></span>MUSIC PLAYER</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>VIP LIVE STREAM</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>FAN MEMBERSHIP</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>MERCH STORE</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>BOOKING CALENDAR</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>COMMUNITY CHAT</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>EMAIL CAMPAIGNS</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>EVENTS SHOWCASE</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>LED BORDER</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>ANALYTICS</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>SUPABASE SYNC</div>
+    <div class="marquee-item"><span class="marquee-dot"></span>PUSH NOTIFICATIONS</div>
+  </div>
+</div>
+
+<!-- FEATURES GRID -->
+<section class="features-section" id="features">
+  <div class="container">
+    <div class="features-header reveal">
+      <span class="section-label">◆ EVERYTHING YOU NEED</span>
+      <h2 class="section-title">BUILT IN.<br/>READY NOW.</h2>
+    </div>
+
+    <div class="features-grid reveal">
+      <div class="feature-card" style="--accent:rgba(255,107,53,0.08)">
+        <span class="feature-icon">♪</span>
+        <div class="feature-name">MUSIC PLAYER</div>
+        <div class="feature-desc">Cinematic player with floating album art, animated EQ bars, prev/next, and direct audio upload or URL.</div>
+      </div>
+      <div class="feature-card" style="--accent:rgba(199,125,255,0.08)">
+        <span class="feature-icon">👑🔴</span>
+        <div class="feature-name">VIP LIVE STREAM</div>
+        <div class="feature-desc">Stream privately to paying members only. Camera, YouTube embed, or RTMP. Members see it the moment you go live.</div>
+      </div>
+      <div class="feature-card" style="--accent:rgba(255,214,10,0.08)">
+        <span class="feature-icon">⭐</span>
+        <div class="feature-name">FAN MEMBERSHIP</div>
+        <div class="feature-desc">PIN-gated VIP Lounge with exclusive content — videos, audio, downloads, messages. Stripe-powered subscriptions.</div>
+      </div>
+      <div class="feature-card" style="--accent:rgba(0,245,212,0.08)">
+        <span class="feature-icon">💬</span>
+        <div class="feature-name">COMMUNITY CHAT</div>
+        <div class="feature-desc">Persistent posts, replies, and likes — all saved to Supabase in real time. Works on every device, nothing lost on refresh.</div>
+      </div>
+      <div class="feature-card" style="--accent:rgba(255,107,53,0.08)">
+        <span class="feature-icon">🔥</span>
+        <div class="feature-name">EVENTS SHOWCASE</div>
+        <div class="feature-desc">Live countdown timers, featured hero cards, ticket CTAs, and a customizable slideshow background per event.</div>
+      </div>
+      <div class="feature-card" style="--accent:rgba(199,125,255,0.08)">
+        <span class="feature-icon">📧</span>
+        <div class="feature-name">EMAIL CAMPAIGNS</div>
+        <div class="feature-desc">Compose, preview, and send emails to your entire list. 5 built-in templates. {first_name} personalization. Sent history.</div>
+      </div>
+      <div class="feature-card" style="--accent:rgba(255,214,10,0.08)">
+        <span class="feature-icon">🛍</span>
+        <div class="feature-name">MERCH STORE</div>
+        <div class="feature-desc">Full product store with cart and Stripe checkout. Categories, product photos, shipping messages — all admin-controlled.</div>
+      </div>
+      <div class="feature-card" style="--accent:rgba(0,245,212,0.08)">
+        <span class="feature-icon">📅</span>
+        <div class="feature-name">BOOKING CALENDAR</div>
+        <div class="feature-desc">Full month calendar, color-coded events, inquiry management, and one-tap "Add to Calendar" from form submissions.</div>
+      </div>
+      <div class="feature-card" style="--accent:rgba(255,107,53,0.08)">
+        <span class="feature-icon">📊</span>
+        <div class="feature-name">ANALYTICS DASHBOARD</div>
+        <div class="feature-desc">Plays, views, follower growth, and revenue trends. Every metric you need to grow the business — all in one panel.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SPLIT — PHONE + VIP STORY -->
+<section class="split-section">
+  <div class="container">
+    <div class="split-inner">
+      <div class="phone-mock reveal">
+        <div class="phone-glow"></div>
+        <div class="phone-frame">
+          <div class="phone-led-top"></div>
+          <div class="phone-led-bottom"></div>
+          <div class="phone-led-left"></div>
+          <div class="phone-led-right"></div>
+          <div class="phone-screen">
+            <div class="phone-header">
+              <div class="phone-logo">YOUR BRAND</div>
+              <div class="phone-live"><div class="live-dot"></div>LIVE</div>
+            </div>
+            <div class="phone-hero-img">
+              <div class="phone-brand-name">YOUR BRAND</div>
+              <div class="phone-tagline">MUSIC · SHOWS · COMMUNITY</div>
+            </div>
+            <div class="phone-nav">
+              <div class="phone-nav-item active">HOME</div>
+              <div class="phone-nav-item">MUSIC</div>
+              <div class="phone-nav-item">SHOWS</div>
+              <div class="phone-nav-item">EVENTS</div>
+              <div class="phone-nav-item">VIP</div>
+            </div>
+            <div class="phone-content">
+              <div class="phone-card">
+                <div class="phone-card-icon">♪</div>
+                <div><div class="phone-card-title">MUSIC</div><div class="phone-card-sub">Latest tracks & releases</div></div>
+              </div>
+              <div class="phone-card">
+                <div class="phone-card-icon">🔥</div>
+                <div><div class="phone-card-title">EVENTS</div><div class="phone-card-sub">Upcoming shows & appearances</div></div>
+              </div>
+              <div class="phone-card">
+                <div class="phone-card-icon">👑</div>
+                <div><div class="phone-card-title">VIP MEMBERS</div><div class="phone-card-sub">Exclusive access only</div></div>
+              </div>
+              <div class="phone-card">
+                <div class="phone-card-icon">💬</div>
+                <div><div class="phone-card-title">COMMUNITY</div><div class="phone-card-sub">Posts, replies & the vibe</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="reveal">
+        <span class="section-label">◆ INSTALLS LIKE A NATIVE APP</span>
+        <h2 class="section-title">RUNS ON<br/>EVERY<br/>DEVICE</h2>
+        <p class="section-body">
+          Deploy to Vercel in 5 minutes. Open in Safari — add to home screen. It's on your phone like Instagram. Open on any browser — it works like a full website. One codebase. Every device. All data synced in real time through Supabase.
+        </p>
+        <div style="margin-top: 36px; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;box-shadow:0 0 8px var(--teal)"></div>
+            <span style="font-size:14px;color:rgba(255,255,255,0.6);">iPhone · iPad · Android · Mac · PC — one URL</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;box-shadow:0 0 8px var(--teal)"></div>
+            <span style="font-size:14px;color:rgba(255,255,255,0.6);">Save to home screen — works offline like a native app</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;box-shadow:0 0 8px var(--teal)"></div>
+            <span style="font-size:14px;color:rgba(255,255,255,0.6);">Change something on your iPad — your phone sees it instantly</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;box-shadow:0 0 8px var(--teal)"></div>
+            <span style="font-size:14px;color:rgba(255,255,255,0.6);">Powered by Supabase — the same tech as major apps</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- REVENUE SECTION -->
+<section class="revenue-section">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:0">
+      <span class="section-label" style="display:block;text-align:center">◆ MONETIZATION</span>
+      <h2 class="section-title" style="text-align:center">SIX WAYS<br/>TO GET PAID</h2>
+      <p class="section-body" style="margin:0 auto;text-align:center">No middleman. No revenue split. Every dollar goes directly to you.</p>
+    </div>
+
+    <div class="revenue-grid reveal">
+      <div class="revenue-card">
+        <span class="revenue-emoji">⭐</span>
+        <div class="revenue-title">Fan Membership</div>
+        <div class="revenue-desc">Monthly or yearly subscriptions. Set your price. Stripe handles payments. You keep everything minus Stripe's 2.9%.</div>
+        <span class="revenue-badge">STRIPE POWERED</span>
+      </div>
+      <div class="revenue-card">
+        <span class="revenue-emoji">👑🔴</span>
+        <div class="revenue-title">VIP Live Streams</div>
+        <div class="revenue-desc">Private live streams visible only inside the Members Lounge. Gate your best content behind the paywall.</div>
+        <span class="revenue-badge">MEMBERS ONLY</span>
+      </div>
+      <div class="revenue-card">
+        <span class="revenue-emoji">🛍</span>
+        <div class="revenue-title">Merch Store</div>
+        <div class="revenue-desc">Full in-app storefront with cart and Stripe Checkout. Sell physical and digital products directly from your app.</div>
+        <span class="revenue-badge">STRIPE POWERED</span>
+      </div>
+      <div class="revenue-card">
+        <span class="revenue-emoji">📅</span>
+        <div class="revenue-title">Booking & Appearances</div>
+        <div class="revenue-desc">Fans and brands submit inquiries through the app. You see every request in your booking calendar with one tap to schedule.</div>
+        <span class="revenue-badge">DIRECT INQUIRIES</span>
+      </div>
+      <div class="revenue-card">
+        <span class="revenue-emoji">📧</span>
+        <div class="revenue-title">Email Marketing</div>
+        <div class="revenue-desc">Build your list. Send campaigns. Promote drops, merch, events. Own your audience — not rented from a platform.</div>
+        <span class="revenue-badge">YOU OWN THE LIST</span>
+      </div>
+      <div class="revenue-card">
+        <span class="revenue-emoji">📥</span>
+        <div class="revenue-title">Digital Downloads</div>
+        <div class="revenue-desc">Sell exclusive tracks, sample packs, presets, PDFs — anything digital — directly through the VIP Lounge or merch store.</div>
+        <span class="revenue-badge">INSTANT DELIVERY</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BIG STATEMENT -->
+<section class="statement-section">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <h2 class="statement-title">
+        <span style="color:rgba(255,255,255,0.15);display:block;font-size:0.5em;letter-spacing:0.3em;margin-bottom:12px">WHAT YOU GET</span>
+        NO ALGORITHM.<br/>
+        <span style="background:linear-gradient(135deg,var(--orange),var(--gold),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent">NO FEES.</span><br/>
+        NO LIMITS.
+      </h2>
+      <p class="statement-sub">A major label would spend $200,000 building this. You're getting it pre-built, pre-connected, and ready to deploy in under 5 minutes.</p>
+      <a href="#cta" class="btn-primary">👑 BUILD YOUR EMPIRE</a>
+    </div>
+  </div>
+</section>
+
+<!-- THEMES SECTION -->
+<section class="themes-section">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-label">◆ 5 BUILT-IN THEMES</span>
+      <h2 class="section-title">LOOKS LIKE<br/>YOUR BRAND</h2>
+      <p class="section-body">Switch themes with one tap. Each one is a completely different visual identity — with a live mini-preview before you commit.</p>
+    </div>
+
+    <div class="themes-row reveal">
+      <div class="theme-chip theme-dark">
+        <div class="theme-chip-name" style="color:#F0EDE8">Dark</div>
+        <div class="theme-chip-desc" style="color:rgba(255,255,255,0.4)">Cinematic · Bold · Dramatic</div>
+        <div style="margin-top:20px;height:3px;border-radius:2px;background:linear-gradient(90deg,#FF6B35,#C77DFF)"></div>
+      </div>
+      <div class="theme-chip theme-metal">
+        <div class="theme-chip-name">Metal</div>
+        <div class="theme-chip-desc" style="color:rgba(200,200,220,0.4)">Brushed Steel · Industrial</div>
+        <div style="margin-top:20px;height:3px;border-radius:2px;background:linear-gradient(90deg,#A8A8C8,#8888B8)"></div>
+      </div>
+      <div class="theme-chip theme-corporate">
+        <div class="theme-chip-name" style="color:#1A1D23">Corporate</div>
+        <div class="theme-chip-desc">Boardroom · Professional</div>
+        <div style="margin-top:20px;height:3px;border-radius:2px;background:linear-gradient(90deg,#2C5282,#4A90D9)"></div>
+      </div>
+      <div class="theme-chip theme-minimal">
+        <div class="theme-chip-name" style="color:#0A0A0A">Minimal</div>
+        <div class="theme-chip-desc">Pure · White · Clean</div>
+        <div style="margin-top:20px;height:3px;border-radius:2px;background:#0A0A0A"></div>
+      </div>
+      <div class="theme-chip theme-light">
+        <div class="theme-chip-name">Light</div>
+        <div class="theme-chip-desc">Warm · Inviting · Open</div>
+        <div style="margin-top:20px;height:3px;border-radius:2px;background:linear-gradient(90deg,#FF6B35,#C77DFF)"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN 25 TABS -->
+<section class="admin-section">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:0">
+      <span class="section-label" style="display:block;text-align:center">◆ FULL COMMAND CENTER</span>
+      <h2 class="section-title" style="text-align:center">25 ADMIN<br/>PANELS</h2>
+      <p class="section-body" style="margin:0 auto 0;text-align:center">Everything controlled from a single responsive icon grid. No code. No developers. Tap, type, done.</p>
+    </div>
+
+    <div class="admin-grid reveal">
+      <div class="admin-tab"><div class="admin-tab-icon">💰</div><div class="admin-tab-name">FINANCE</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">🗄</div><div class="admin-tab-name">DATABASE</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">◈</div><div class="admin-tab-name">BRAND</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">📢</div><div class="admin-tab-name">TICKER</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">♪</div><div class="admin-tab-name">MUSIC</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">▶</div><div class="admin-tab-name">SHOWS</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">◈</div><div class="admin-tab-name">GALLERY</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">◎</div><div class="admin-tab-name">SOCIAL</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">⭐</div><div class="admin-tab-name">MEMBERSHIP</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">👑🔴</div><div class="admin-tab-name">VIP LIVE</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">📧</div><div class="admin-tab-name">EMAIL LIST</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">📅</div><div class="admin-tab-name">BOOKING</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">🔥</div><div class="admin-tab-name">EVENTS</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">🔗</div><div class="admin-tab-name">LINK IN BIO</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">🛍</div><div class="admin-tab-name">MERCH</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">💬</div><div class="admin-tab-name">COMMUNITY</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">◆</div><div class="admin-tab-name">BROADCAST</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">🔔</div><div class="admin-tab-name">PUSH</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">📊</div><div class="admin-tab-name">ANALYTICS</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">🔴</div><div class="admin-tab-name">GO LIVE</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">⚙</div><div class="admin-tab-name">APIS</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">🔊</div><div class="admin-tab-name">AUTOPLAY</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">★</div><div class="admin-tab-name">FEATURES</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">🎨</div><div class="admin-tab-name">THEMES</div></div>
+      <div class="admin-tab"><div class="admin-tab-icon">🔒</div><div class="admin-tab-name">SECURITY</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section" id="cta">
+  <div class="container">
+    <h2 class="cta-title reveal">
+      DEPLOY IT.<br/>
+      <span style="background:linear-gradient(135deg,var(--orange),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent">BRAND IT.</span><br/>
+      OWN IT.
+    </h2>
+    <p class="cta-sub reveal">No monthly fees. No algorithm. No revenue cut.<br/>Your platform. Your fans. Your empire.</p>
+    <div class="cta-actions reveal">
+      <a href="https://digital-media-liart.vercel.app" target="_blank" class="btn-primary">🚀 LAUNCH THE APP</a>
+      <a href="#features" class="btn-ghost">EXPLORE FEATURES</a>
+    </div>
+
+    <div style="margin-top:60px;display:flex;gap:40px;justify-content:center;flex-wrap:wrap" class="reveal">
+      <div style="text-align:center">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;background:linear-gradient(135deg,var(--orange),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent">FREE</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:0.3em;font-family:'Barlow Condensed',sans-serif">TO DEPLOY</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;background:linear-gradient(135deg,var(--orange),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent">5 MIN</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:0.3em;font-family:'Barlow Condensed',sans-serif">TO GO LIVE</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;background:linear-gradient(135deg,var(--orange),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent">100%</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:0.3em;font-family:'Barlow Condensed',sans-serif">YOURS FOREVER</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">MEDIA EMPIRE</div>
+  <div class="footer-copy">v3.0 · Built with Claude AI · 2026</div>
+</footer>
+
+<script>
+  // ── PARTICLES ──
+  const container = document.getElementById('particles');
+  const colors = ['#FF6B35','#C77DFF','#FFD60A','#00F5D4'];
+  for (let i = 0; i < 22; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 1.5 + Math.random() * 2.5;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const dur = 8 + Math.random() * 12;
+    const delay = Math.random() * 10;
+    const drift = (Math.random() - 0.5) * 60;
+    Object.assign(p.style, {
+      width: size + 'px',
+      height: size + 'px',
+      left: Math.random() * 100 + '%',
+      top: 20 + Math.random() * 80 + '%',
+      background: color,
+      boxShadow: `0 0 ${size * 4}px ${color}88`,
+      '--drift': drift + 'px',
+      animationDuration: dur + 's',
+      animationDelay: delay + 's',
+    });
+    container.appendChild(p);
+  }
+
+  // ── SCROLL REVEAL ──
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // ── STAGGER CHILD REVEALS ──
+  document.querySelectorAll('.features-grid, .revenue-grid, .admin-grid').forEach(grid => {
+    const children = grid.children;
+    Array.from(children).forEach((child, i) => {
+      child.style.transitionDelay = (i * 0.06) + 's';
+    });
+  });
+</script>
+</body>
+</html>
