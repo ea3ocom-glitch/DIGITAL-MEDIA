@@ -6,8 +6,9 @@ const ADMIN_PASS = "YourBrand2025!";
 
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 // 🔧 PASTE YOUR SUPABASE CREDENTIALS HERE (from supabase.com → Project Settings → API)
-const SUPABASE_URL  = "https://tqhiaslgmmtwhnuszqxo.supabase.co";   // e.g. https://xxxx.supabase.co
-const SUPABASE_KEY  = "sb_publishable_mNnL9ywbzlkAD8WDvAEv8w_DzlQaeOA"; // starts with "eyJ..."
+const SUPABASE_URL  = "YOUR_SUPABASE_URL";   // e.g. https://xxxx.supabase.co
+const SUPABASE_KEY  = "YOUR_SUPABASE_ANON_KEY"; // starts with "eyJ..."
+
 // ─── RUNTIME SUPABASE CONFIG — reads from localStorage so users can set keys from UI ─
 function getSbCreds() {
   try {
@@ -2756,20 +2757,20 @@ function LocalCacheStatus() {
 }
 
 function DatabaseTab({ dbStatus, saveConfigToDB, config }) {
-  const [sbUrl,    setSbUrl]    = React.useState(() => { try { const c=JSON.parse(localStorage.getItem("me_sb_creds")||"{}"); return c.url||""; } catch{ return ""; }});
-  const [sbKey,    setSbKey]    = React.useState(() => { try { const c=JSON.parse(localStorage.getItem("me_sb_creds")||"{}"); return c.key||""; } catch{ return ""; }});
-  const [testing,  setTesting]  = React.useState(false);
-  const [testMsg,  setTestMsg]  = React.useState("");
-  const [testOk,   setTestOk]   = React.useState(false);
-  const [copied,   setCopied]   = React.useState(false);
-  const [saving,   setSaving]   = React.useState(false);
-  const [saved,    setSaved]    = React.useState(false);
-  const [stats,    setStats]    = React.useState({ subscribers:0, inquiries:0, members:0 });
-  const [loading,  setLoading]  = React.useState(false);
+  const [sbUrl,    setSbUrl]    = useState(() => { try { const c=JSON.parse(localStorage.getItem("me_sb_creds")||"{}"); return c.url||""; } catch{ return ""; }});
+  const [sbKey,    setSbKey]    = useState(() => { try { const c=JSON.parse(localStorage.getItem("me_sb_creds")||"{}"); return c.key||""; } catch{ return ""; }});
+  const [testing,  setTesting]  = useState(false);
+  const [testMsg,  setTestMsg]  = useState("");
+  const [testOk,   setTestOk]   = useState(false);
+  const [copied,   setCopied]   = useState(false);
+  const [saving,   setSaving]   = useState(false);
+  const [saved,    setSaved]    = useState(false);
+  const [stats,    setStats]    = useState({ subscribers:0, inquiries:0, members:0 });
+  const [loading,  setLoading]  = useState(false);
 
   const configured = sb.ready;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!sb.ready) return;
     setLoading(true);
     Promise.all([sb.getSubscribers(), sb.getInquiries(), sb.getMembers()]).then(([subs,inqs,mems]) => {
