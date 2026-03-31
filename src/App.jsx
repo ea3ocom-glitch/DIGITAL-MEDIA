@@ -6,14 +6,43 @@ const ADMIN_PASS = "YourBrand2025!";
 
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 // 🔧 PASTE YOUR SUPABASE CREDENTIALS HERE (from supabase.com → Project Settings → API)
-const SUPABASE_URL  = "https://tqhiaslgmmtwhnuszqxo.supabase.co";   // e.g. https://xxxx.supabase.co
-const SUPABASE_KEY  = "sb_publishable_mNnL9ywbzlkAD8WDvAEv8w_DzlQaeOA"; // starts with "eyJ..."
+const SUPABASE_URL  = "YOUR_SUPABASE_URL";   // e.g. https://xxxx.supabase.co
+const SUPABASE_KEY  = "YOUR_SUPABASE_ANON_KEY"; // starts with "eyJ..."
+
+// ─── RUNTIME SUPABASE CONFIG — reads from localStorage so users can set keys from UI ─
+function getSbCreds() {
+  try {
+    const stored = localStorage.getItem("me_sb_creds");
+    if (stored) {
+      const { url, key } = JSON.parse(stored);
+      if (url && key && url !== "YOUR_SUPABASE_URL") return { url, key };
+    }
+  } catch {}
+  // Fall back to hardcoded constants
+  if (SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_KEY !== "YOUR_SUPABASE_ANON_KEY") {
+    return { url: SUPABASE_URL, key: SUPABASE_KEY };
+  }
+  return null;
+}
+
+const _initCreds = getSbCreds();
 
 // Lightweight Supabase client — no npm package needed
 const sb = {
-  url: SUPABASE_URL,
-  key: SUPABASE_KEY,
-  ready: SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_KEY !== "YOUR_SUPABASE_ANON_KEY",
+  url:   _initCreds?.url || SUPABASE_URL,
+  key:   _initCreds?.key || SUPABASE_KEY,
+  ready: !!_initCreds,
+
+  // Reconnect with new credentials at runtime (called from admin UI)
+  connect(url, key) {
+    this.url   = url;
+    this.key   = key;
+    this.ready = !!(url && key && url.startsWith("http"));
+    if (this.ready) {
+      try { localStorage.setItem("me_sb_creds", JSON.stringify({ url, key })); } catch {}
+    }
+    return this.ready;
+  },
 
   async query(table, method = "GET", body = null, match = null) {
     if (!this.ready) return { data: null, error: "Supabase not configured" };
@@ -1591,7 +1620,7 @@ function AdminPanel({ config, saveConfig, onLogout, sendToast, pushStatus, dbSta
       <div style={{ padding:"24px 20px", maxWidth:"640px", margin:"0 auto" }}>
 
         {activeTab === "finance"    && <FinanceTab />}
-        {activeTab === "database"   && <DatabaseTab dbStatus={dbStatus} />}
+        {activeTab === "database"   && <DatabaseTab dbStatus={dbStatus} saveConfigToDB={saveConfig} config={cfg} />}
         {activeTab === "brand"      && <BrandTab    cfg={cfg} update={update} setCfg={setCfg} />}
         {activeTab === "ticker"     && <TickerAdminTab cfg={cfg} setCfg={setCfg} />}
         {activeTab === "music"      && <MusicAdminTab cfg={cfg} setCfg={setCfg} />}
@@ -2727,107 +2756,175 @@ function LocalCacheStatus() {
   );
 }
 
-function DatabaseTab({ dbStatus }) {
-  const [sbUrl,   setSbUrl]   = useState(SUPABASE_URL   !== "YOUR_SUPABASE_URL"   ? SUPABASE_URL   : "");
-  const [sbKey,   setSbKey]   = useState(SUPABASE_KEY   !== "YOUR_SUPABASE_ANON_KEY" ? SUPABASE_KEY : "");
-  const [copied,  setCopied]  = useState(false);
-  const [stats,   setStats]   = useState({ subscribers:0, inquiries:0, members:0 });
-  const [loading, setLoading] = useState(false);
+function DatabaseTab({ dbStatus, saveConfigToDB, config }) {
+  const [sbUrl,    setSbUrl]    = React.useState(() => { try { const c=JSON.parse(localStorage.getItem("me_sb_creds")||"{}"); return c.url||""; } catch{ return ""; }});
+  const [sbKey,    setSbKey]    = React.useState(() => { try { const c=JSON.parse(localStorage.getItem("me_sb_creds")||"{}"); return c.key||""; } catch{ return ""; }});
+  const [testing,  setTesting]  = React.useState(false);
+  const [testMsg,  setTestMsg]  = React.useState("");
+  const [testOk,   setTestOk]   = React.useState(false);
+  const [copied,   setCopied]   = React.useState(false);
+  const [saving,   setSaving]   = React.useState(false);
+  const [saved,    setSaved]    = React.useState(false);
+  const [stats,    setStats]    = React.useState({ subscribers:0, inquiries:0, members:0 });
+  const [loading,  setLoading]  = React.useState(false);
 
   const configured = sb.ready;
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!sb.ready) return;
     setLoading(true);
-    Promise.all([sb.getSubscribers(), sb.getInquiries(), sb.getMembers()]).then(([subs, inqs, mems]) => {
-      setStats({ subscribers: subs.length, inquiries: inqs.length, members: mems.length });
+    Promise.all([sb.getSubscribers(), sb.getInquiries(), sb.getMembers()]).then(([subs,inqs,mems]) => {
+      setStats({ subscribers:subs.length, inquiries:inqs.length, members:mems.length });
       setLoading(false);
     });
   }, []);
+
+  const testConnection = async () => {
+    if (!sbUrl.trim() || !sbKey.trim()) { setTestMsg("Enter both URL and API Key first"); setTestOk(false); return; }
+    setTesting(true); setTestMsg("");
+    try {
+      const res = await fetch(`${sbUrl.trim()}/rest/v1/app_config?select=id&limit=1`, {
+        headers: { "apikey": sbKey.trim(), "Authorization": `Bearer ${sbKey.trim()}` }
+      });
+      if (res.ok || res.status === 406) {
+        setTestOk(true); setTestMsg("✅ Connected! Credentials are valid.");
+      } else if (res.status === 401) {
+        setTestOk(false); setTestMsg("❌ Invalid API Key — check your anon key");
+      } else if (res.status === 404) {
+        setTestOk(false); setTestMsg("❌ URL not found — check your Supabase URL");
+      } else {
+        setTestOk(false); setTestMsg(`❌ Error ${res.status} — check your credentials`);
+      }
+    } catch {
+      setTestOk(false); setTestMsg("❌ Cannot reach Supabase — check the URL");
+    }
+    setTesting(false);
+  };
+
+  const saveCredentials = async () => {
+    if (!sbUrl.trim() || !sbKey.trim()) return;
+    setSaving(true);
+    const ok = sb.connect(sbUrl.trim(), sbKey.trim());
+    if (ok) {
+      // Push current config to Supabase immediately
+      if (config) await sb.saveConfig(config);
+      setSaved(true);
+      setTimeout(() => { setSaved(false); window.location.reload(); }, 1500);
+    }
+    setSaving(false);
+  };
 
   const copySQL = () => {
     navigator.clipboard?.writeText(DB_SETUP_SQL).catch(()=>{});
     setCopied(true); setTimeout(()=>setCopied(false), 2000);
   };
 
+  const disconnectDB = () => {
+    try { localStorage.removeItem("me_sb_creds"); } catch {}
+    setSbUrl(""); setSbKey("");
+    sb.url = ""; sb.key = ""; sb.ready = false;
+  };
+
   return (
     <div style={{ animation:"fadeIn 0.3s ease" }}>
 
-      {/* CONNECTION STATUS */}
+      {/* STATUS BANNER */}
       <div style={{ padding:"16px", borderRadius:"14px", marginBottom:"20px",
         background: configured ? "rgba(0,245,212,0.08)" : "rgba(255,107,53,0.08)",
-        border: configured ? "1px solid rgba(0,245,212,0.3)" : "1px solid rgba(255,107,53,0.3)" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
-          <div style={{ fontSize:"24px" }}>{configured ? "🗄" : "⚠"}</div>
-          <div>
-            <div style={{ fontSize:"13px", fontWeight:"800", color: configured?"#00F5D4":"#FF6B35" }}>
+        border: configured ? "1px solid rgba(0,245,212,0.3)" : "2px solid rgba(255,107,53,0.4)" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
+          <div style={{ fontSize:"28px" }}>{configured ? "🗄" : "⚠️"}</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:"14px", fontWeight:"800", color: configured?"#00F5D4":"#FF6B35" }}>
               {configured
                 ? dbStatus==="connected" ? "Database Connected ✓"
                 : dbStatus==="loading"   ? "Connecting..."
                 : dbStatus==="error"     ? "Connection Error"
                 : "Database Configured"
-                : "Database Not Configured"}
+                : "⚠ Database NOT Connected"}
             </div>
-            <div style={{ fontSize:"11px", color:"#777", marginTop:"2px" }}>
+            <div style={{ fontSize:"11px", color:configured?"#777":"#FF6B35", marginTop:"2px" }}>
               {configured
-                ? "Your app data is being saved permanently to Supabase"
-                : "Add your Supabase credentials below to enable persistent storage"}
+                ? "Data syncs across all devices in real time"
+                : "Your data only saves locally — other devices won't see changes. Add Supabase below to fix this."}
             </div>
           </div>
+          {configured && <button onClick={disconnectDB} style={{ fontSize:"9px", color:"#555", background:"none", border:"1px solid rgba(255,255,255,0.1)", borderRadius:"7px", padding:"5px 9px", cursor:"pointer" }}>Disconnect</button>}
         </div>
       </div>
 
       {/* LIVE STATS */}
       {configured && (
-        <div style={{ display:"flex", gap:"10px", marginBottom:"20px" }}>
+        <div style={{ display:"flex", gap:"8px", marginBottom:"20px" }}>
           {[
             { label:"EMAIL SUBS", val:stats.subscribers, icon:"📧", color:"#00F5D4" },
             { label:"INQUIRIES",  val:stats.inquiries,   icon:"📅", color:"#C77DFF" },
             { label:"MEMBERS",    val:stats.members,     icon:"⭐", color:"#FFD60A" },
           ].map(s => (
-            <div key={s.label} style={{ flex:1, padding:"14px 10px", borderRadius:"12px", background:`${s.color}0d`, border:`1px solid ${s.color}30`, textAlign:"center" }}>
-              <div style={{ fontSize:"20px", marginBottom:"4px" }}>{s.icon}</div>
-              <div style={{ fontSize:"22px", fontWeight:"900", color:s.color }}>{loading?"...":s.val}</div>
-              <div style={{ fontSize:"8px", color:"#484848", letterSpacing:"0.2em", fontFamily:"monospace" }}>{s.label}</div>
+            <div key={s.label} style={{ flex:1, padding:"12px 8px", borderRadius:"11px", background:`${s.color}0d`, border:`1px solid ${s.color}25`, textAlign:"center" }}>
+              <div style={{ fontSize:"16px", marginBottom:"3px" }}>{s.icon}</div>
+              <div style={{ fontSize:"20px", fontWeight:"900", color:s.color }}>{loading?"...":s.val}</div>
+              <div style={{ fontSize:"7px", letterSpacing:"0.2em", color:"#555", marginTop:"2px" }}>{s.label}</div>
             </div>
           ))}
         </div>
       )}
 
-      {/* STEP 1 — CREATE SUPABASE PROJECT */}
-      <ASection title="Step 1 — Create Supabase Project" icon="◆" color="#FF6B35">
-        <div style={{ fontSize:"12px", color:"#bbb", lineHeight:1.7, marginBottom:"12px" }}>
-          1. Go to <span style={{ color:"#FF6B35" }}>supabase.com</span> and create a free account{"\n"}
-          2. Click <strong style={{color:"#fff"}}>"New Project"</strong> and give it a name{"\n"}
-          3. Wait ~2 minutes for it to set up{"\n"}
-          4. Go to <strong style={{color:"#fff"}}>Project Settings → API</strong>{"\n"}
-          5. Copy your <strong style={{color:"#fff"}}>Project URL</strong> and <strong style={{color:"#fff"}}>anon/public key</strong>
+      {/* CREDENTIALS ENTRY */}
+      <ASection title="Connect Supabase (Cross-Device Sync)" icon="🔑" color="#FF6B35">
+        <div style={{ marginBottom:"16px", padding:"12px 14px", borderRadius:"10px", background:"rgba(255,107,53,0.06)", border:"1px solid rgba(255,107,53,0.2)", fontSize:"11px", color:"#bbb", lineHeight:1.7 }}>
+          <strong style={{ color:"#FF6B35" }}>Free in 3 minutes:</strong> Go to <strong style={{ color:"#FF6B35" }}>supabase.com</strong> → New Project → Settings → API → copy your Project URL and anon public key below. This makes your app work on every device.
         </div>
-      </ASection>
 
-      {/* STEP 2 — CREATE TABLES */}
-      <ASection title="Step 2 — Create Database Tables" icon="◆" color="#C77DFF">
-        <div style={{ fontSize:"12px", color:"#bbb", lineHeight:1.6, marginBottom:"12px" }}>
-          In Supabase, go to <strong style={{color:"#fff"}}>SQL Editor → New Query</strong>, paste the SQL below and click Run:
+        <div style={{ marginBottom:"10px" }}>
+          <label style={{ fontSize:"9px", letterSpacing:"0.2em", color:"#555", display:"block", marginBottom:"6px" }}>SUPABASE PROJECT URL</label>
+          <input value={sbUrl} onChange={e=>setSbUrl(e.target.value)} placeholder="https://xxxxxxxxxxxx.supabase.co"
+            style={{ width:"100%", padding:"11px 13px", background:"rgba(0,0,0,0.4)", border:`1px solid ${sbUrl?"rgba(0,245,212,0.3)":"rgba(255,255,255,0.08)"}`, borderRadius:"9px", color:"#fff", fontSize:"12px", outline:"none", fontFamily:"monospace" }} />
         </div>
-        <div style={{ position:"relative" }}>
-          <pre style={{ padding:"14px", borderRadius:"10px", background:"rgba(0,0,0,0.5)", border:"1px solid rgba(255,255,255,0.08)", fontSize:"10px", color:"#aaa", overflow:"auto", maxHeight:"160px", lineHeight:1.5, whiteSpace:"pre-wrap" }}>{DB_SETUP_SQL.trim()}</pre>
-          <button onClick={copySQL} style={{ position:"absolute", top:"8px", right:"8px", padding:"5px 10px", borderRadius:"7px", border:`1px solid ${copied?"#00F5D4":"rgba(255,255,255,0.15)"}`, background:copied?"rgba(0,245,212,0.1)":"rgba(0,0,0,0.6)", color:copied?"#00F5D4":"#aaa", fontSize:"9px", cursor:"pointer", fontFamily:"monospace" }}>
-            {copied?"COPIED ✓":"COPY SQL"}
+
+        <div style={{ marginBottom:"14px" }}>
+          <label style={{ fontSize:"9px", letterSpacing:"0.2em", color:"#555", display:"block", marginBottom:"6px" }}>ANON PUBLIC KEY (starts with eyJ...)</label>
+          <input value={sbKey} onChange={e=>setSbKey(e.target.value)} placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            style={{ width:"100%", padding:"11px 13px", background:"rgba(0,0,0,0.4)", border:`1px solid ${sbKey?"rgba(0,245,212,0.3)":"rgba(255,255,255,0.08)"}`, borderRadius:"9px", color:"#fff", fontSize:"12px", outline:"none", fontFamily:"monospace" }} />
+        </div>
+
+        {/* TEST + SAVE BUTTONS */}
+        <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+          <button onClick={testConnection} disabled={testing||!sbUrl||!sbKey}
+            style={{ flex:1, padding:"11px", borderRadius:"9px", border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.04)", color:"#bbb", fontSize:"11px", fontWeight:"700", cursor:"pointer" }}>
+            {testing ? "⏳ Testing..." : "🔌 Test Connection"}
+          </button>
+          <button onClick={saveCredentials} disabled={saving||!sbUrl||!sbKey}
+            style={{ flex:1, padding:"11px", borderRadius:"9px", border:"none", background:saved?"#00F5D4":sbUrl&&sbKey?"linear-gradient(135deg,#FF6B35,#C77DFF)":"rgba(255,255,255,0.05)", color:saved?"#000":sbUrl&&sbKey?"#000":"#555", fontSize:"11px", fontWeight:"900", cursor:"pointer" }}>
+            {saved ? "✓ SAVED — RELOADING..." : saving ? "Saving..." : "💾 SAVE & CONNECT"}
           </button>
         </div>
+
+        {testMsg && (
+          <div style={{ padding:"10px 12px", borderRadius:"8px", background:testOk?"rgba(0,245,212,0.08)":"rgba(255,59,48,0.08)", border:`1px solid ${testOk?"rgba(0,245,212,0.3)":"rgba(255,59,48,0.3)"}`, fontSize:"12px", color:testOk?"#00F5D4":"#FF3B30" }}>
+            {testMsg}
+          </div>
+        )}
+
+        <div style={{ marginTop:"10px", fontSize:"9px", color:"#484848", lineHeight:1.7 }}>
+          Step 1: supabase.com → New Project<br/>
+          Step 2: Settings → API → copy URL and anon key<br/>
+          Step 3: Paste above → Test → Save &amp; Connect<br/>
+          Step 4: Admin → 🗄 DATABASE → Copy SQL → Run in Supabase SQL Editor<br/>
+          Step 5: Done — all devices sync automatically ✓
+        </div>
       </ASection>
 
-      {/* STEP 3 — PASTE CREDENTIALS */}
-      <ASection title="Step 3 — Paste Your Credentials" icon="◆" color="#FFD60A">
-        <AField label="Supabase Project URL" value={sbUrl} onChange={v=>setSbUrl(v)} placeholder="https://xxxxxxxxxxxx.supabase.co" />
-        <AField label="Supabase Anon Key"    value={sbKey} onChange={v=>setSbKey(v)} placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
-        <div style={{ padding:"12px 14px", borderRadius:"10px", background:"rgba(255,214,10,0.07)", border:"1px solid rgba(255,214,10,0.2)", fontSize:"11px", color:"#FFD60A", lineHeight:1.6 }}>
-          ⚡ After pasting, open <strong style={{color:"#fff"}}>App.jsx</strong> in your code editor and replace lines 9–10:{"\n"}
-          <code style={{ color:"#00F5D4", display:"block", marginTop:"6px", fontSize:"10px" }}>
-            {'const SUPABASE_URL  = "' + (sbUrl||"https://xxxx.supabase.co") + '";'}{"\n"}
-            {'const SUPABASE_KEY  = "' + (sbKey||"eyJ...") + '";'}
+      {/* SQL SETUP */}
+      <ASection title="Database Setup SQL" icon="◆" color="#C77DFF">
+        <div style={{ fontSize:"11px", color:"#777", marginBottom:"12px" }}>After connecting, run this SQL in Supabase → SQL Editor → New Query → Run. Creates all required tables.</div>
+        <div style={{ position:"relative" }}>
+          <code style={{ display:"block", padding:"14px", borderRadius:"10px", background:"rgba(0,0,0,0.5)", border:"1px solid rgba(255,255,255,0.08)", fontSize:"9px", color:"#00F5D4", fontFamily:"monospace", lineHeight:1.7, whiteSpace:"pre-wrap", maxHeight:"200px", overflowY:"auto" }}>
+            {DB_SETUP_SQL.trim()}
           </code>
+          <button onClick={copySQL} style={{ position:"absolute", top:"8px", right:"8px", padding:"5px 10px", borderRadius:"7px", border:"1px solid rgba(199,125,255,0.3)", background:"rgba(199,125,255,0.1)", color:"#C77DFF", fontSize:"9px", cursor:"pointer" }}>
+            {copied ? "✓ COPIED" : "📋 COPY"}
+          </button>
         </div>
       </ASection>
 
@@ -2845,29 +2942,28 @@ function DatabaseTab({ dbStatus }) {
           ["👑","VIP Content",          "Members Lounge content items and PIN are saved as part of your admin config"],
           ["📤","Email Sent History",   "Every email campaign you send is logged with recipient count and send date"],
           ["🔄","Cross-Device Sync",    "Update on your iPad, see changes on your phone instantly — all backed by Supabase"],
-        ].map(([emoji, title, desc], i) => (
+        ].map(([emoji,title,desc],i) => (
           <div key={i} style={{ display:"flex", gap:"12px", padding:"11px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
-            <div style={{ width:"32px", height:"32px", borderRadius:"8px", background:"rgba(0,245,212,0.08)", border:"1px solid rgba(0,245,212,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"15px", flexShrink:0 }}>{emoji}</div>
+            <div style={{ width:"32px",height:"32px",borderRadius:"8px",background:"rgba(0,245,212,0.08)",border:"1px solid rgba(0,245,212,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"15px",flexShrink:0 }}>{emoji}</div>
             <div>
-              <div style={{ fontSize:"12px", fontWeight:"700", color:"#ddd" }}>{title}</div>
-              <div style={{ fontSize:"11px", color:"#666", marginTop:"2px", lineHeight:1.5 }}>{desc}</div>
+              <div style={{ fontSize:"12px",fontWeight:"700",color:"#ddd" }}>{title}</div>
+              <div style={{ fontSize:"11px",color:"#666",marginTop:"2px",lineHeight:1.5 }}>{desc}</div>
             </div>
           </div>
         ))}
       </ASection>
 
       {/* LOCAL CACHE */}
-      <ASection title="Local Cache (Offline Storage)" icon="💾" color="#FF6B35">
-        <div style={{ padding:"12px 14px", borderRadius:"10px", marginBottom:"14px", background:"rgba(255,107,53,0.07)", border:"1px solid rgba(255,107,53,0.2)" }}>
-          <div style={{ fontSize:"11px", color:"#ccc", lineHeight:1.7 }}>
-            <strong style={{ color:"#FF6B35" }}>How it works:</strong> Every time you tap SAVE ALL, your config is written to your browser's localStorage. This means your settings survive page refreshes automatically — no Supabase required. When Supabase IS connected, it syncs to the database too for cross-device access.
-          </div>
+      <ASection title="Local Cache (This Device)" icon="💾" color="#777">
+        <div style={{ fontSize:"11px",color:"#777",marginBottom:"12px",lineHeight:1.6 }}>
+          Settings are also saved in this browser's localStorage as a backup. Clears if you clear browser data.
         </div>
         <LocalCacheStatus />
       </ASection>
     </div>
   );
 }
+
 
 // ─── FINANCE TAB ─────────────────────────────────────────────────────────────
 function FinanceTab() {
