@@ -6,8 +6,8 @@ const ADMIN_PASS = "YourBrand2025!";
 
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 // 🔧 PASTE YOUR SUPABASE CREDENTIALS HERE (from supabase.com → Project Settings → API)
-const SUPABASE_URL  = "https://tqhiaslgmmtwhnuszqxo.supabase.co";   // e.g. https://xxxx.supabase.co
-const SUPABASE_KEY  = "sb_publishable_mNnL9ywbzlkAD8WDvAEv8w_DzlQaeOA"; // starts with "eyJ..."
+const SUPABASE_URL  = "YOUR_SUPABASE_URL";   // e.g. https://xxxx.supabase.co
+const SUPABASE_KEY  = "YOUR_SUPABASE_ANON_KEY"; // starts with "eyJ..."
 
 // Lightweight Supabase client — no npm package needed
 const sb = {
@@ -6553,24 +6553,26 @@ function LinkInBioScreen({ config, goHome }) {
 // ─── ADMIN: MEMBERSHIP TAB ───────────────────────────────────────────────────
 // ─── VIP LIVE ADMIN TAB ───────────────────────────────────────────────────────
 function VipLiveAdminTab({ cfg, setCfg, setIsLiveNow }) {
-  const m       = cfg.membership || {};
-  const vl      = m.vipLive || {};
-  const pc      = cfg.brand?.primaryColor || "#FF6B35";
-  const ac      = cfg.brand?.accentColor  || "#C77DFF";
+  const m  = cfg.membership || {};
+  const vl = m.vipLive || {};
+  const pc = cfg.brand?.primaryColor || "#FF6B35";
 
-  const updateVL = (key, val) => setCfg(p => ({
+  // All settings read/write directly from cfg — no duplicate local state
+  const setVL = (key, val) => setCfg(p => ({
     ...p, membership:{ ...p.membership, vipLive:{ ...(p.membership?.vipLive||{}), [key]:val } }
   }));
 
-  const [isLive,    setIsLive]    = useState(vl.isLive || false);
-  const [timer,     setTimer]     = useState(0);
-  const [viewers,   setViewers]   = useState(vl.viewerCount || 0);
-  const [cameraOn,  setCameraOn]  = useState(false);
-  const [camError,  setCamError]  = useState("");
-  const [streamType,setStreamType]= useState(vl.streamType || "camera");
-  const [title,     setTitle]     = useState(vl.streamTitle || "");
-  const [desc,      setDesc]      = useState(vl.streamDesc  || "");
-  const [embedUrl,  setEmbedUrl]  = useState(vl.embedUrl    || "");
+  // Multi-key update helper
+  const setVLMany = (obj) => setCfg(p => ({
+    ...p, membership:{ ...p.membership, vipLive:{ ...(p.membership?.vipLive||{}), ...obj } }
+  }));
+
+  // Runtime-only state (not persisted to config)
+  const [isLive,   setIsLive]   = useState(false);
+  const [timer,    setTimer]    = useState(0);
+  const [viewers,  setViewers]  = useState(0);
+  const [cameraOn, setCameraOn] = useState(false);
+  const [camError, setCamError] = useState("");
 
   const videoRef  = useRef(null);
   const streamRef = useRef(null);
@@ -6600,52 +6602,39 @@ function VipLiveAdminTab({ cfg, setCfg, setIsLiveNow }) {
   };
 
   const goLive = () => {
-    if (!title.trim()) return;
+    if (!(vl.streamTitle || "").trim()) return;
     const livePayload = {
       isLive:      true,
-      streamType,
-      streamTitle: title,
-      streamDesc:  desc,
-      embedUrl:    embedUrl.trim(),
+      streamType:  vl.streamType  || "camera",
+      streamTitle: vl.streamTitle || "",
+      streamDesc:  vl.streamDesc  || "",
+      embedUrl:    (vl.embedUrl   || "").trim(),
       startedAt:   new Date().toISOString(),
       viewerCount: 0,
     };
-    setIsLive(true);
-    setTimer(0);
-    setViewers(Math.floor(Math.random() * 5) + 1);
-    // Push to config state
-    updateVL("isLive",      true);
-    updateVL("streamTitle", title);
-    updateVL("streamDesc",  desc);
-    updateVL("streamType",  streamType);
-    updateVL("embedUrl",    embedUrl.trim());
-    updateVL("startedAt",   new Date().toISOString());
+    setIsLive(true); setTimer(0); setViewers(Math.floor(Math.random()*5)+1);
+    setVLMany({ isLive:true, startedAt:new Date().toISOString() });
     if (setIsLiveNow) setIsLiveNow(true);
-    // ✅ Push to Supabase immediately so ALL devices see it
     sb.setVipLive(livePayload);
     timerRef.current = setInterval(() => {
-      setTimer(t => t + 1);
-      setViewers(v => Math.max(1, v + Math.floor(Math.random() * 3) - 1));
+      setTimer(t => t+1);
+      setViewers(v => Math.max(1, v + Math.floor(Math.random()*3)-1));
     }, 1000);
   };
 
   const endLive = () => {
     clearInterval(timerRef.current);
     stopCamera();
-    setIsLive(false);
-    setTimer(0);
-    const offPayload = { isLive: false, streamTitle:"", streamDesc:"", embedUrl:"", startedAt: null, viewerCount:0 };
-    updateVL("isLive",      false);
-    updateVL("startedAt",   null);
-    updateVL("viewerCount", 0);
+    setIsLive(false); setTimer(0);
+    setVLMany({ isLive:false, startedAt:null, viewerCount:0 });
     if (setIsLiveNow) setIsLiveNow(false);
-    // ✅ Push offline state to Supabase so ALL devices clear the stream
-    sb.setVipLive(offPayload);
+    sb.setVipLive({ isLive:false, streamTitle:"", streamDesc:"", embedUrl:"", startedAt:null, viewerCount:0 });
   };
 
-  const canGoLive = title.trim().length > 0 && (
+  const streamType = vl.streamType || "camera";
+  const canGoLive  = !!(vl.streamTitle || "").trim() && (
     streamType === "camera" ||
-    (streamType === "embed" && embedUrl.trim().length > 0) ||
+    (streamType === "embed" && (vl.embedUrl||"").trim().length > 0) ||
     streamType === "rtmp"
   );
 
@@ -6702,7 +6691,7 @@ function VipLiveAdminTab({ cfg, setCfg, setIsLiveNow }) {
         <ASection title="Stream Source" icon="📡" color="#C77DFF">
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"6px", marginBottom:"12px" }}>
             {[["camera","📹 Camera","Use device camera"],["embed","🔗 Embed","YouTube/Vimeo live"],["rtmp","⚡ RTMP","Stream key"]].map(([val,lbl,sub])=>(
-              <div key={val} onClick={()=>setStreamType(val)}
+              <div key={val} onClick={()=>setVL("streamType",val)}
                 style={{ padding:"10px 6px", borderRadius:"10px", cursor:"pointer", textAlign:"center",
                   border:streamType===val?"1px solid #C77DFF":"1px solid rgba(255,255,255,0.07)",
                   background:streamType===val?"rgba(199,125,255,0.12)":"rgba(255,255,255,0.02)" }}>
@@ -6722,10 +6711,10 @@ function VipLiveAdminTab({ cfg, setCfg, setIsLiveNow }) {
           {/* EMBED URL */}
           {streamType==="embed" && (
             <div>
-              <AField label="YouTube / Vimeo Live URL" value={embedUrl} onChange={setEmbedUrl} placeholder="https://youtube.com/watch?v=... or embed/..." />
-              {embedUrl.trim() && (
+              <AField label="YouTube / Vimeo Live URL" value={vl.embedUrl||""} onChange={v=>setVL("embedUrl",v)} placeholder="https://youtube.com/watch?v=... or embed/..." />
+              {(vl.embedUrl||"").trim() && (
                 <div style={{ padding:"8px 10px", borderRadius:"8px", background:"rgba(0,245,212,0.07)", border:"1px solid rgba(0,245,212,0.2)", fontSize:"10px", color:"#00F5D4", marginBottom:"6px", wordBreak:"break-all", fontFamily:"monospace" }}>
-                  ▶ Will play: {normalizeEmbedUrl(embedUrl)}
+                  ▶ Will play: {normalizeEmbedUrl(vl.embedUrl||"")}
                 </div>
               )}
               <div style={{ fontSize:"9px", color:"#555", lineHeight:1.6 }}>
@@ -6750,10 +6739,10 @@ function VipLiveAdminTab({ cfg, setCfg, setIsLiveNow }) {
       {/* STREAM DETAILS */}
       {!isLive && (
         <ASection title="Stream Details" icon="◈" color="#FF6B35">
-          <AField label="Stream Title *" value={title} onChange={setTitle} placeholder="VIP-only Q&A Session 🎤" />
+          <AField label="Stream Title *" value={vl.streamTitle||""} onChange={v=>setVL("streamTitle",v)} placeholder="VIP-only Q&A Session 🎤" />
           <div style={{ marginBottom:"12px" }}>
             <label style={{ fontSize:"9px", letterSpacing:"0.2em", color:"#555", display:"block", marginBottom:"6px" }}>DESCRIPTION</label>
-            <textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={2} placeholder="Tell your VIPs what this stream is about..."
+            <textarea value={vl.streamDesc||""} onChange={e=>setVL("streamDesc",e.target.value)} rows={2} placeholder="Tell your VIPs what this stream is about..."
               style={{ width:"100%", padding:"9px 12px", background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"8px", color:"#ddd", fontSize:"12px", outline:"none", fontFamily:"monospace", resize:"none", lineHeight:1.5 }} />
           </div>
         </ASection>
