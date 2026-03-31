@@ -6,8 +6,8 @@ const ADMIN_PASS = "YourBrand2025!";
 
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 // 🔧 PASTE YOUR SUPABASE CREDENTIALS HERE (from supabase.com → Project Settings → API)
-const SUPABASE_URL  = "https://tqhiaslgmmtwhnuszqxo.supabase.co";   // e.g. https://xxxx.supabase.co
-const SUPABASE_KEY  = "sb_publishable_mNnL9ywbzlkAD8WDvAEv8w_DzlQaeOA"; // starts with "eyJ..."
+const SUPABASE_URL  = "YOUR_SUPABASE_URL";   // e.g. https://xxxx.supabase.co
+const SUPABASE_KEY  = "YOUR_SUPABASE_ANON_KEY"; // starts with "eyJ..."
 
 // Lightweight Supabase client — no npm package needed
 const sb = {
@@ -54,6 +54,24 @@ const sb = {
   async loadConfig() {
     if (!this.ready) return null;
     const { data } = await this.query("app_config", "GET", null, { id: 1 });
+    if (data && data[0]?.data) {
+      try { return JSON.parse(data[0].data); } catch { return null; }
+    }
+    return null;
+  },
+
+  // VIP Live — dedicated row for instant cross-device sync
+  async setVipLive(liveData) {
+    if (!this.ready) return false;
+    const payload = { id:1, data: JSON.stringify(liveData), updated_at: new Date().toISOString() };
+    const { error } = await this.query("vip_live", "POST", payload);
+    if (error) await this.query("vip_live", "PATCH", { data: JSON.stringify(liveData), updated_at: new Date().toISOString() }, { id:1 });
+    return true;
+  },
+
+  async getVipLive() {
+    if (!this.ready) return null;
+    const { data } = await this.query("vip_live?order=updated_at.desc&limit=1", "GET");
     if (data && data[0]?.data) {
       try { return JSON.parse(data[0].data); } catch { return null; }
     }
@@ -173,12 +191,19 @@ CREATE TABLE IF NOT EXISTS community_posts (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS vip_live (
+  id INT PRIMARY KEY,
+  data TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable public access (Row Level Security off for simplicity)
 ALTER TABLE app_config       DISABLE ROW LEVEL SECURITY;
 ALTER TABLE subscribers      DISABLE ROW LEVEL SECURITY;
 ALTER TABLE inquiries        DISABLE ROW LEVEL SECURITY;
 ALTER TABLE members          DISABLE ROW LEVEL SECURITY;
 ALTER TABLE community_posts  DISABLE ROW LEVEL SECURITY;
+ALTER TABLE vip_live         DISABLE ROW LEVEL SECURITY;
 `;
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -5955,6 +5980,23 @@ function MembershipScreen({ config, goHome }) {
   const [joined,      setJoined]      = useState(false);
   const [activeItem,  setActiveItem]  = useState(null);
 
+  // ✅ Live stream state — polled from Supabase every 5s so ALL devices stay in sync
+  const [liveState, setLiveState] = useState(m.vipLive || {});
+
+  useEffect(() => {
+    if (!vipUnlocked) return;
+    // Initial fetch
+    sb.getVipLive().then(data => { if (data) setLiveState(data); });
+    // Poll every 5 seconds
+    const poll = setInterval(() => {
+      sb.getVipLive().then(data => { if (data) setLiveState(data); });
+    }, 5000);
+    return () => clearInterval(poll);
+  }, [vipUnlocked]);
+
+  // Merge: prefer Supabase data over config data so cross-device sync works
+  const activeLive = liveState.isLive ? liveState : (m.vipLive?.isLive ? m.vipLive : null);
+
   const vipContent = m.vipContent || [];
 
   const tryPin = () => {
@@ -6011,8 +6053,8 @@ function MembershipScreen({ config, goHome }) {
           </button>
         </div>
 
-        {/* VIP LIVE STREAM — appears at top when active */}
-        {m.vipLive?.isLive && (
+        {/* VIP LIVE STREAM — appears at top when active, synced from Supabase */}
+        {activeLive?.isLive && (
           <div style={{ margin:"0 16px 20px" }}>
             <div style={{ borderRadius:"16px", overflow:"hidden", border:"2px solid rgba(255,59,48,0.5)", boxShadow:"0 4px 30px rgba(255,59,48,0.25)" }}>
               {/* LIVE HEADER */}
@@ -6025,14 +6067,14 @@ function MembershipScreen({ config, goHome }) {
               </div>
 
               {/* ── CAMERA STREAM ── */}
-              {m.vipLive.streamType === "camera" && <VipLiveCameraView />}
+              {activeLive.streamType === "camera" && <VipLiveCameraView />}
 
               {/* ── EMBED STREAM ── */}
-              {m.vipLive.streamType === "embed" && (
-                m.vipLive.embedUrl?.trim() ? (
+              {activeLive.streamType === "embed" && (
+                activeLive.embedUrl?.trim() ? (
                   <div style={{ position:"relative", paddingBottom:"56.25%", background:"#000" }}>
                     <iframe
-                      src={normalizeEmbedUrl(m.vipLive.embedUrl)}
+                      src={normalizeEmbedUrl(activeLive.embedUrl)}
                       style={{ position:"absolute", inset:0, width:"100%", height:"100%", border:"none" }}
                       allow="autoplay; fullscreen; picture-in-picture"
                       allowFullScreen
@@ -6047,24 +6089,24 @@ function MembershipScreen({ config, goHome }) {
               )}
 
               {/* ── RTMP STREAM ── */}
-              {m.vipLive.streamType === "rtmp" && (
+              {activeLive.streamType === "rtmp" && (
                 <div style={{ aspectRatio:"16/9", background:"linear-gradient(135deg,#0a0008,#0a0a0f)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"12px", padding:"24px 20px" }}>
                   <div style={{ display:"flex", gap:"3px", alignItems:"flex-end" }}>
-                    {[1,2,3,4,5].map(i=>(
-                      <div key={i} style={{ width:"5px", borderRadius:"3px", background:"#FF3B30", animation:`eq${i<=4?i:4} 0.6s ease-in-out infinite alternate`, height:`${[14,22,18,28,20][i-1]}px` }} />
+                    {[1,2,3,4].map(i=>(
+                      <div key={i} style={{ width:"5px", borderRadius:"3px", background:"#FF3B30", animation:`eq${i} 0.6s ease-in-out infinite alternate`, height:`${[14,22,18,28][i-1]}px` }} />
                     ))}
                   </div>
                   <div style={{ textAlign:"center" }}>
                     <div style={{ fontSize:"13px", fontWeight:"800", color:"#fff", marginBottom:"4px" }}>Broadcasting via RTMP</div>
-                    <div style={{ fontSize:"11px", color:"#555", lineHeight:1.6 }}>Your stream is live through OBS / Streamlabs.<br/>Open your stream URL in a browser to watch.</div>
+                    <div style={{ fontSize:"11px", color:"#555", lineHeight:1.6 }}>Stream is live through external software.<br/>Open your stream URL to watch.</div>
                   </div>
                 </div>
               )}
 
               {/* STREAM INFO */}
               <div style={{ padding:"12px 14px", background:"rgba(0,0,0,0.5)" }}>
-                <div style={{ fontSize:"14px", fontWeight:"800", color:"#fff", marginBottom:"3px" }}>{m.vipLive.streamTitle || "VIP Live Stream"}</div>
-                {m.vipLive.streamDesc && <div style={{ fontSize:"11px", color:"#888", lineHeight:1.5 }}>{m.vipLive.streamDesc}</div>}
+                <div style={{ fontSize:"14px", fontWeight:"800", color:"#fff", marginBottom:"3px" }}>{activeLive.streamTitle || "VIP Live Stream"}</div>
+                {activeLive.streamDesc && <div style={{ fontSize:"11px", color:"#888", lineHeight:1.5 }}>{activeLive.streamDesc}</div>}
               </div>
             </div>
           </div>
@@ -6559,16 +6601,28 @@ function VipLiveAdminTab({ cfg, setCfg, setIsLiveNow }) {
 
   const goLive = () => {
     if (!title.trim()) return;
+    const livePayload = {
+      isLive:      true,
+      streamType,
+      streamTitle: title,
+      streamDesc:  desc,
+      embedUrl:    embedUrl.trim(),
+      startedAt:   new Date().toISOString(),
+      viewerCount: 0,
+    };
     setIsLive(true);
     setTimer(0);
     setViewers(Math.floor(Math.random() * 5) + 1);
+    // Push to config state
     updateVL("isLive",      true);
     updateVL("streamTitle", title);
     updateVL("streamDesc",  desc);
     updateVL("streamType",  streamType);
-    updateVL("embedUrl",    embedUrl);
+    updateVL("embedUrl",    embedUrl.trim());
     updateVL("startedAt",   new Date().toISOString());
     if (setIsLiveNow) setIsLiveNow(true);
+    // ✅ Push to Supabase immediately so ALL devices see it
+    sb.setVipLive(livePayload);
     timerRef.current = setInterval(() => {
       setTimer(t => t + 1);
       setViewers(v => Math.max(1, v + Math.floor(Math.random() * 3) - 1));
@@ -6580,10 +6634,13 @@ function VipLiveAdminTab({ cfg, setCfg, setIsLiveNow }) {
     stopCamera();
     setIsLive(false);
     setTimer(0);
+    const offPayload = { isLive: false, streamTitle:"", streamDesc:"", embedUrl:"", startedAt: null, viewerCount:0 };
     updateVL("isLive",      false);
     updateVL("startedAt",   null);
     updateVL("viewerCount", 0);
     if (setIsLiveNow) setIsLiveNow(false);
+    // ✅ Push offline state to Supabase so ALL devices clear the stream
+    sb.setVipLive(offPayload);
   };
 
   const canGoLive = title.trim().length > 0 && (
