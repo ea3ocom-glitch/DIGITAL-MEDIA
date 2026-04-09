@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DMEG.TV — Mod Roadmap</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#06060f;font-family:system-ui,sans-serif;color:#fff;min-height:100vh;padding:24px 16px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+::-webkit-scrollbar{width:4px;background:#06060f}
+::-webkit-scrollbar-thumb{background:#1a1a30;border-radius:4px}
+.mod-card{background:#0d0d1a;border:1px solid #16162a;border-radius:11px;padding:14px 16px;cursor:pointer;transition:border-color .2s,background .2s;animation:fadeUp .3s ease both}
+.mod-card:hover{background:#111128;border-color:#6366f155}
+.mod-card.selected{border-color:#6366f1;background:#111130}
+.tier-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:.06em}
+.impact-bar{height:4px;border-radius:2px;background:#1e1e30;overflow:hidden}
+.impact-fill{height:100%;border-radius:2px;transition:width .6s ease}
+.filter-btn{padding:4px 11px;border-radius:20px;font-size:10px;font-weight:700;border:1px solid;cursor:pointer;transition:all .2s}
+.feature-check{display:flex;align-items:flex-start;gap:6px}
+.feature-check span:first-child{color:#6366f1;flex-shrink:0;margin-top:1px;font-size:11px}
+.feature-check span:last-child{font-size:11px;color:#999;line-height:1.4}
+</style>
+</head>
+<body>
+
+<div style="max-width:860px;margin:0 auto;">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div style="font-size:22px;font-weight:900;letter-spacing:.04em;">DMEG<span style="color:#6366f1">.TV</span></div>
+      <div style="font-size:13px;color:#444;margin-top:3px;">Mod Roadmap — 12 high-impact platform modules</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:5px;background:#6366f115;border:1px solid #6366f133;border-radius:20px;padding:5px 12px;">
+      <span style="width:6px;height:6px;border-radius:50%;background:#6366f1;display:inline-block;animation:pulse 1.5s infinite;"></span>
+      <span style="font-size:10px;color:#a5b4fc;font-weight:700;">12 MODS READY TO BUILD</span>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;" id="filter-btns">
+    <button class="filter-btn" id="fb-all" onclick="filterMods('all')" style="border-color:#6366f1;background:#6366f122;color:#a5b4fc;">All</button>
+    <button class="filter-btn" id="fb-revenue" onclick="filterMods('revenue')" style="border-color:#1e1e30;background:transparent;color:#444;">Revenue</button>
+    <button class="filter-btn" id="fb-engagement" onclick="filterMods('engagement')" style="border-color:#1e1e30;background:transparent;color:#444;">Engagement</button>
+    <button class="filter-btn" id="fb-creator" onclick="filterMods('creator')" style="border-color:#1e1e30;background:transparent;color:#444;">Creator Tools</button>
+    <button class="filter-btn" id="fb-ai" onclick="filterMods('ai')" style="border-color:#1e1e30;background:transparent;color:#444;">AI</button>
+  </div>
+
+  <div id="mod-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;"></div>
+
+  <div id="detail-panel" style="display:none;background:#0a0a18;border:1px solid #6366f133;border-radius:12px;padding:20px;margin-top:16px;animation:fadeUp .25s ease;"></div>
+
+</div>
+
+<script>
+const MODS=[
+  {id:"ai-studio",icon:"🤖",name:"AI Creator Studio",tag:"AI",tier:"ai",tierColor:"#60a5fa",impact:97,
+   desc:"AI writes captions, generates music clips, creates post variations, suggests upload times, and auto-tags content for discovery.",
+   revenue:"Charge $29/mo Creator Pro plan — unlock unlimited AI generations.",
+   features:["AI caption writer for every post","Beat/sample generation from text prompt","Auto-thumbnail selector from video frames","Best upload time predictor by audience","Hashtag & SEO auto-tagging","Content repurpose: long video → clips"],
+   build:"Claude API · claude-sonnet-4-6 · MediaRecorder for clip extraction"},
+  {id:"live-collab",icon:"🎛",name:"Live Collab Room",tag:"Creator Tools",tier:"creator",tierColor:"#fbbf24",impact:94,
+   desc:"Multiple creators join a shared audio/video room and co-produce content live. Fans watch the creation in real time and earn ME for staying.",
+   revenue:"VIP-only spectator access · Tip jar during session · ME multiplier for watch time.",
+   features:["Up to 6 creator multi-track room","Shared DAW-style mixer controls","Fan spectator stream (read-only)","Real-time session recording","ME earn per minute watched","Session replay stored in TV feed"],
+   build:"WebRTC mesh · Web Audio API · Supabase Realtime"},
+  {id:"nft-drops",icon:"💎",name:"ME NFT Drop System",tag:"Revenue",tier:"revenue",tierColor:"#34d399",impact:91,
+   desc:"Creators mint limited digital collectibles (album art, video clips, signed moments) that fans buy with ME. Scarcity drives demand, burns ME supply.",
+   revenue:"5–10% platform fee on every mint and resale. Secondary market = recurring income forever.",
+   features:["Creator 1-click NFT minter","Scarcity controls (editions 1–999)","ME-only purchase (burns supply)","Resale royalty split to creator + platform","Fan collection gallery page","Drop countdown with email/push notifications"],
+   build:"Polygon or Base L2 · IPFS for media storage · Ethers.js"},
+  {id:"ai-dj",icon:"🎚",name:"AI Radio DJ",tag:"AI",tier:"ai",tierColor:"#60a5fa",impact:89,
+   desc:"An AI DJ hosts a 24/7 radio channel that pulls from platform tracks, announces creators, drops hot takes, and reacts to live activity feed events.",
+   revenue:"Sponsored slots in the DJ rotation · Creators pay ME to get their track bumped to top.",
+   features:["24/7 programmatic radio stream","AI voice announces creators by name","Reacts to live stock price changes","Accepts tip requests for song bumps","Genre-specific channels","Fan requests via community chat"],
+   build:"ElevenLabs TTS · FFmpeg audio pipeline · Supabase Realtime triggers"},
+  {id:"fan-duel",icon:"⚔️",name:"Creator Fan Duel",tag:"Engagement",tier:"engagement",tierColor:"#a78bfa",impact:88,
+   desc:"Two creators battle in head-to-head content challenges. Fans vote with ME tokens. Winner's stock spikes, loser's dips. Pure engagement warfare.",
+   revenue:"ME entry fee from both sides · Platform takes 3% of the total pool.",
+   features:["Challenge initiation between any two creators","Fans stake ME on their pick","Live vote counter with real-time chart","Stock price impact on result","Battle replay in TV feed","Leaderboard for most wins"],
+   build:"Supabase Edge Functions for ME pool · Chart.js live chart · WebSocket vote stream"},
+  {id:"smart-contracts",icon:"📜",name:"Creator Smart Contracts",tag:"Revenue",tier:"revenue",tierColor:"#34d399",impact:86,
+   desc:"Creators and collaborators sign auto-enforced revenue split contracts on-chain. When royalties arrive, they split and pay out instantly with no disputes.",
+   revenue:"0.5% fee on every contract execution. Volume = passive income at scale.",
+   features:["Visual contract builder (no code)","Split royalties 2–10 creators","Auto-pays on every stream/sale event","Immutable on-chain record","PDF summary for creators","Dispute resolution via platform vote"],
+   build:"Solidity smart contract · Hardhat · The Graph for indexing"},
+  {id:"ar-filter",icon:"✨",name:"Creator AR Filters",tag:"Creator Tools",tier:"creator",tierColor:"#fbbf24",impact:83,
+   desc:"Creators design branded AR filters fans use in video posts and live streams. Every use of a creator's filter earns them ME passively.",
+   revenue:"Filter marketplace — creators sell custom filters for ME. Platform takes 15%.",
+   features:["Drag-and-drop AR filter builder","Face tracking + background effects","Branded overlays with creator logo","Fans use filters in posts/stories","Per-use ME royalty to filter creator","Top filter leaderboard"],
+   build:"MediaPipe FaceMesh · Three.js WebGL overlays · WebRTC video track replacement"},
+  {id:"merch-drops",icon:"🛍",name:"Live Merch Drop Engine",tag:"Revenue",tier:"revenue",tierColor:"#34d399",impact:82,
+   desc:"Creators schedule countdown merch drops that go live on the TV feed. Fans buy with ME or USD. Scarcity timers drive FOMO purchases.",
+   revenue:"15–25% platform cut on all merch sold. Print-on-demand integration = zero inventory risk.",
+   features:["Countdown drop scheduler","FOMO units-left counter","Live purchase feed on TV screen","ME + USD dual payment","Print-on-demand API (Printful/Printify)","Post-drop analytics"],
+   build:"Stripe + ME wallet checkout · Printful API · Supabase scheduled triggers"},
+  {id:"ai-analytics",icon:"📊",name:"Creator Intelligence Dashboard",tag:"AI",tier:"ai",tierColor:"#60a5fa",impact:80,
+   desc:"AI-powered analytics that tells creators exactly what content drives stock price increases, best posting windows, fan sentiment trends, and revenue forecasts.",
+   revenue:"Locked behind Creator Pro ($29/mo). Data is power — creators pay for it.",
+   features:["Stock price vs content correlation chart","Fan sentiment AI analyzer","Revenue forecast next 30 days","Best posting time heatmap","Competitor creator comparison","Weekly AI performance report"],
+   build:"Claude API for insight generation · Chart.js dashboards · Supabase analytics views"},
+  {id:"audio-rooms",icon:"🎙",name:"Audio Drop Rooms",tag:"Creator Tools",tier:"creator",tierColor:"#fbbf24",impact:78,
+   desc:"Twitter Spaces / Clubhouse-style live audio rooms. Creators host, fans raise hand to speak. ME burns to get stage time. Recorded and monetized afterward.",
+   revenue:"ME burn for speaker access · Replay behind paywall · Sponsor integrations.",
+   features:["Host + speaker + listener roles","Hand-raise queue","ME burn for priority speaker slot","Live transcript (AI-generated)","Clip any moment for TV feed","Replay sold as exclusive content"],
+   build:"WebRTC audio-only · Supabase Realtime room state · Whisper API for transcription"},
+  {id:"prediction-market",icon:"🔮",name:"Fan Prediction Market",tag:"Engagement",tier:"engagement",tierColor:"#a78bfa",impact:76,
+   desc:"Fans bet ME on creator outcomes: Will Drake hit 25K plays this week? Will Nova Reigns' stock hit 1,000? Real stakes make every metric matter.",
+   revenue:"Platform takes 2% of every resolved prediction pool.",
+   features:["Creator or admin posts predictions","Fans stake ME on yes/no","Live odds update with stake volume","Auto-resolves via platform data","ME payout to winners","History of all predictions"],
+   build:"Supabase Edge Functions for odds calc · Realtime stake updates"},
+  {id:"collab-board",icon:"🤝",name:"Creator Collab Board",tag:"Creator Tools",tier:"creator",tierColor:"#fbbf24",impact:72,
+   desc:"A Craigslist-meets-LinkedIn for creators. Post collab requests, respond to offers, sign agreements, and split revenue — all inside the platform.",
+   revenue:"Featured listing slots · Smart contract execution fees.",
+   features:["Post collab opportunities","Filter by genre, ME tier, location","Proposal system with ME escrow","Built-in video intro (30s pitch)","Collab history on creator profile","Skill/genre tags for discovery"],
+   build:"Supabase full-text search · ME escrow via smart contract · WebRTC 30s pitch recorder"},
+];
+
+const FILTER_COLORS={all:"#6366f1",revenue:"#34d399",engagement:"#a78bfa",creator:"#fbbf24",ai:"#60a5fa"};
+const TIER_MAP={revenue:"Revenue",engagement:"Engagement",creator:"Creator Tools",ai:"AI"};
+let activeFilter="all", selectedId=null;
+
+function filterMods(f){
+  activeFilter=f;
+  Object.keys(FILTER_COLORS).forEach(k=>{
+    const btn=document.getElementById("fb-"+k);
+    const on=k===f; const c=FILTER_COLORS[k];
+    btn.style.borderColor=on?c:"#1e1e30";
+    btn.style.background=on?c+"22":"transparent";
+    btn.style.color=on?c:"#444";
+  });
+  renderGrid();
+}
+
+function renderGrid(){
+  const grid=document.getElementById("mod-grid");
+  const mods=activeFilter==="all"?MODS:MODS.filter(m=>m.tier===activeFilter);
+  grid.innerHTML=mods.map((m,i)=>`
+    <div class="mod-card ${selectedId===m.id?'selected':''}" style="animation-delay:${i*0.04}s" onclick="selectMod('${m.id}')">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:20px;">${m.icon}</span>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#fff;">${m.name}</div>
+            <div style="font-size:9px;color:#444;margin-top:1px;">${m.tag}</div>
+          </div>
+        </div>
+        <span class="tier-pill" style="background:${m.tierColor}18;color:${m.tierColor};border:1px solid ${m.tierColor}44;">${TIER_MAP[m.tier]}</span>
+      </div>
+      <div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:10px;">${m.desc.slice(0,90)}...</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="impact-bar" style="flex:1;">
+          <div class="impact-fill" style="width:${m.impact}%;background:${m.tierColor};"></div>
+        </div>
+        <span style="font-size:10px;color:${m.tierColor};font-weight:700;min-width:28px;">${m.impact}%</span>
+      </div>
+    </div>`).join("");
+}
+
+function selectMod(id){
+  selectedId=selectedId===id?null:id;
+  renderGrid();
+  const panel=document.getElementById("detail-panel");
+  if(!selectedId){panel.style.display="none";return;}
+  const m=MODS.find(x=>x.id===id);
+  panel.style.display="block";
+  panel.scrollIntoView({behavior:"smooth",block:"nearest"});
+  panel.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:28px;">${m.icon}</span>
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#fff;">${m.name}</div>
+          <div style="font-size:10px;color:#555;">${m.tag} · ${m.impact}% impact score</div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#6366f1;font-weight:700;background:#6366f115;border:1px solid #6366f133;border-radius:8px;padding:6px 14px;">Ready to build</div>
+    </div>
+    <div style="font-size:12px;color:#aaa;line-height:1.6;margin-bottom:14px;">${m.desc}</div>
+    <div style="background:#34d39910;border:1px solid #34d39930;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
+      <div style="font-size:9px;color:#34d399;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;">Revenue Model</div>
+      <div style="font-size:12px;color:#a7f3d0;">${m.revenue}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div>
+        <div style="font-size:9px;color:#555;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">Features</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          ${m.features.map(f=>`<div class="feature-check"><span>✓</span><span>${f}</span></div>`).join("")}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:9px;color:#555;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">Tech Stack</div>
+        <div style="background:#0d0d1a;border:1px solid #1e1e30;border-radius:8px;padding:12px;">
+          <div style="font-size:11px;color:#6366f1;font-family:monospace;line-height:1.9;">${m.build.split(' · ').join('<br>')}</div>
+        </div>
+        <div style="margin-top:10px;font-size:10px;color:#333;line-height:1.5;">ME credit integration included · Ships with Supabase schema + React component</div>
+      </div>
+    </div>`;
+}
+
+renderGrid();
+</script>
+</body>
+</html>
