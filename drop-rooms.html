@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DROP ROOMS · Audio · Media Empire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;900&family=Barlow+Condensed:ital,wght@0,300;0,400;0,600;0,700;0,900;1,400&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#030608;
+  --surface:rgba(5,10,18,0.95);
+  --card:rgba(7,13,24,0.92);
+  --teal:#00E5FF;
+  --green:#00FF88;
+  --purple:#B07FFF;
+  --gold:#FFD600;
+  --orange:#FF8C00;
+  --pink:#FF6B9D;
+  --red:#FF3B30;
+  --hot:#FF5E00;
+  --text:#D8EEFF;
+  --muted:rgba(180,210,255,0.38);
+  --border:rgba(255,255,255,0.055);
+  --panel:rgba(3,7,16,0.98);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,229,255,0.005) 3px,rgba(0,229,255,0.005) 4px);pointer-events:none;z-index:9999}
+
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* ── ROOMS SIDEBAR ── */
+.rooms-sidebar{
+  width:230px;flex-shrink:0;
+  background:var(--panel);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow:hidden;position:relative;
+}
+.rooms-sidebar::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--hot),var(--gold),var(--hot),transparent)}
+
+.rs-head{padding:16px 14px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.rs-brand{display:flex;align-items:center;gap:8px}
+.rs-icon{width:30px;height:30px;border-radius:8px;background:rgba(255,94,0,0.12);border:1px solid rgba(255,94,0,0.3);display:flex;align-items:center;justify-content:center;font-size:14px;animation:iconPulse 3s ease-in-out infinite}
+@keyframes iconPulse{0%,100%{box-shadow:0 0 8px rgba(255,94,0,0.2)}50%{box-shadow:0 0 20px rgba(255,94,0,0.6)}}
+.rs-title{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;color:var(--hot);letter-spacing:.2em}
+.rs-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:.2em;margin-top:3px}
+
+.rs-section{padding:9px 12px 4px;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:.3em;color:rgba(255,94,0,0.45);display:flex;align-items:center;gap:6px}
+.rs-section::after{content:'';flex:1;height:1px;background:rgba(255,94,0,0.07)}
+
+.room-list{flex:1;overflow-y:auto;padding:4px 8px 8px}
+.room-list::-webkit-scrollbar{width:2px}
+.room-list::-webkit-scrollbar-thumb{background:rgba(255,94,0,0.15)}
+
+.room-item{
+  padding:9px 10px;border-radius:10px;cursor:pointer;
+  margin-bottom:4px;transition:all .2s;
+  border:1px solid transparent;position:relative;overflow:hidden;
+}
+.room-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;border-radius:1px;transition:opacity .2s;opacity:0}
+.room-item:hover{background:rgba(255,94,0,0.05);border-color:rgba(255,94,0,0.12)}
+.room-item.active{background:rgba(255,94,0,0.08);border-color:rgba(255,94,0,0.25)}
+.room-item.active::before{background:var(--hot);opacity:1}
+
+.ri-top{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.ri-av{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;position:relative}
+.ri-av-ring{position:absolute;inset:-2px;border-radius:10px;border:1px solid;animation:ringPulse 2s ease-in-out infinite}
+@keyframes ringPulse{0%,100%{opacity:.3}50%{opacity:.8}}
+.ri-info{flex:1;min-width:0}
+.ri-name{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ri-creator{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:.08em;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ri-bottom{display:flex;align-items:center;gap:6px}
+.ri-live-badge{display:flex;align-items:center;gap:3px;padding:2px 6px;border-radius:6px;font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:.15em}
+.ri-live-dot{width:4px;height:4px;border-radius:50%;animation:ldot 1.5s ease-in-out infinite}
+@keyframes ldot{0%,100%{opacity:1}50%{opacity:.25}}
+.ri-listeners{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)}
+.ri-unread{margin-left:auto;min-width:16px;height:16px;border-radius:8px;background:var(--hot);display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:7px;color:#000;padding:0 4px;font-weight:bold}
+
+.create-room-btn{margin:8px;padding:9px;border-radius:9px;border:1px dashed rgba(255,94,0,0.2);background:rgba(255,94,0,0.03);color:rgba(255,94,0,0.5);font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.12em;cursor:pointer;text-align:center;transition:all .2s;flex-shrink:0}
+.create-room-btn:hover{border-color:rgba(255,94,0,0.5);color:var(--hot);background:rgba(255,94,0,0.08)}
+
+/* ── MAIN STAGE ── */
+.stage{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;min-width:0}
+
+/* ── ROOM HEADER ── */
+.room-header{
+  flex-shrink:0;
+  background:rgba(3,6,14,0.95);
+  backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);
+  position:relative;z-index:10;
+  overflow:hidden;
+}
+.rh-bg{position:absolute;inset:0;opacity:.06;background-size:cover;background-position:center;filter:blur(20px)}
+.rh-content{position:relative;z-index:1;padding:14px 20px;display:flex;align-items:center;gap:14px}
+.rh-av{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;position:relative}
+.rh-av-glow{position:absolute;inset:-3px;border-radius:15px;animation:avGlow 2s ease-in-out infinite}
+@keyframes avGlow{0%,100%{box-shadow:0 0 10px rgba(255,94,0,0.3)}50%{box-shadow:0 0 30px rgba(255,94,0,0.7),0 0 60px rgba(255,94,0,0.2)}}
+.rh-info{flex:1;min-width:0}
+.rh-track{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:#fff;letter-spacing:.02em;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rh-creator{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.2em;margin-top:4px;display:flex;align-items:center;gap:8px}
+.rh-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.rh-listeners{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.07)}
+.rh-l-num{font-family:'Orbitron',monospace;font-size:13px;font-weight:700;color:var(--text)}
+.rh-l-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:.15em}
+.rh-btn{padding:6px 12px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.1em;cursor:pointer;transition:all .2s}
+.rh-btn:hover{border-color:rgba(255,94,0,0.3);color:var(--hot);background:rgba(255,94,0,0.06)}
+.rh-btn.live-dot-btn{color:var(--green);border-color:rgba(0,255,136,0.25);background:rgba(0,255,136,0.05)}
+
+/* ── PLAYER ── */
+.player-wrap{flex-shrink:0;padding:16px 20px;background:rgba(3,6,14,0.8);border-bottom:1px solid var(--border);position:relative;z-index:5}
+
+/* WAVEFORM */
+.waveform-container{position:relative;height:80px;margin-bottom:12px;border-radius:10px;overflow:hidden;background:rgba(0,0,0,0.3);cursor:pointer}
+#waveCanvas{display:block;width:100%;height:100%}
+.waveform-overlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(3,6,14,0.4) 0%,transparent 10%,transparent 90%,rgba(3,6,14,0.4) 100%);pointer-events:none}
+.playhead{position:absolute;top:0;bottom:0;width:2px;background:rgba(255,255,255,0.8);box-shadow:0 0 8px rgba(255,255,255,0.5);pointer-events:none;transition:left .1s linear}
+.timestamp-tip{position:absolute;top:4px;background:rgba(0,0,0,0.7);border-radius:4px;padding:2px 5px;font-family:'Share Tech Mono',monospace;font-size:8px;color:#fff;pointer-events:none;transform:translateX(-50%);display:none}
+
+/* CONTROLS ROW */
+.controls{display:flex;align-items:center;gap:14px}
+
+.ctrl-group{display:flex;align-items:center;gap:6px}
+
+.play-btn{
+  width:46px;height:46px;border-radius:50%;
+  background:linear-gradient(135deg,var(--hot),rgba(255,94,0,0.6));
+  border:none;color:#fff;font-size:18px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .2s;flex-shrink:0;
+  box-shadow:0 0 20px rgba(255,94,0,0.4);
+}
+.play-btn:hover{transform:scale(1.08);box-shadow:0 0 30px rgba(255,94,0,0.6)}
+.play-btn:active{transform:scale(.95)}
+
+.ctrl-btn{
+  width:32px;height:32px;border-radius:50%;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.08);
+  color:var(--muted);font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+}
+.ctrl-btn:hover{background:rgba(255,94,0,0.1);border-color:rgba(255,94,0,0.25);color:var(--hot)}
+.ctrl-btn.active{color:var(--hot);border-color:rgba(255,94,0,0.4);background:rgba(255,94,0,0.12)}
+
+/* Progress */
+.progress-wrap{flex:1;display:flex;flex-direction:column;gap:4px}
+.progress-track{height:4px;border-radius:2px;background:rgba(255,255,255,0.07);cursor:pointer;position:relative}
+.progress-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--hot),var(--gold));position:relative;transition:width .1s linear}
+.progress-fill::after{content:'';position:absolute;right:-5px;top:-4px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(255,255,255,0.6)}
+.time-row{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.08em}
+
+/* Volume */
+.vol-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.vol-icon{font-size:14px;color:var(--muted);cursor:pointer;transition:color .2s}
+.vol-icon:hover{color:var(--text)}
+.vol-track{width:70px;height:3px;border-radius:2px;background:rgba(255,255,255,0.08);cursor:pointer;position:relative}
+.vol-fill{height:100%;border-radius:2px;background:var(--teal);transition:width .1s}
+
+/* EQ BARS */
+.eq-bars{display:flex;gap:2px;align-items:flex-end;height:20px;flex-shrink:0}
+.eq-bar{width:3px;border-radius:1px;background:var(--hot);animation:eqBounce var(--dur,.4s) ease-in-out infinite alternate}
+@keyframes eqBounce{from{height:3px;opacity:.4}to{height:var(--h,12px);opacity:1}}
+
+/* ── QUEUE ── */
+.queue-section{flex-shrink:0;padding:0 20px 10px;border-bottom:1px solid var(--border)}
+.queue-head{display:flex;align-items:center;justify-content:space-between;padding:8px 0 6px}
+.queue-title{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:.3em;color:var(--muted)}
+.queue-list{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.queue-list::-webkit-scrollbar{height:2px}
+.queue-list::-webkit-scrollbar-thumb{background:rgba(255,94,0,0.2)}
+.q-item{
+  flex-shrink:0;width:100px;cursor:pointer;
+  padding:8px 8px 7px;border-radius:10px;
+  background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);
+  transition:all .2s;position:relative;overflow:hidden;
+}
+.q-item:hover{border-color:rgba(255,94,0,0.25);background:rgba(255,94,0,0.05)}
+.q-item.playing{border-color:rgba(255,94,0,0.4);background:rgba(255,94,0,0.08)}
+.q-item.playing::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--hot),var(--gold))}
+.q-art{width:84px;height:84px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:6px;position:relative;overflow:hidden}
+.q-art-bg{position:absolute;inset:0;opacity:.3;background-size:cover;background-position:center;filter:blur(4px)}
+.q-art-icon{position:relative;z-index:1}
+.q-name{font-size:10px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.q-creator{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-dur{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px}
+.q-exclusive{position:absolute;top:6px;right:6px;padding:2px 5px;border-radius:5px;font-family:'Share Tech Mono',monospace;font-size:6px;background:rgba(255,214,0,0.15);color:var(--gold);border:1px solid rgba(255,214,0,0.3)}
+
+/* ── ROOM CHAT & REACTIONS ── */
+.room-social{flex:1;display:flex;overflow:hidden;min-height:0}
+
+.chat-zone{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;border-right:1px solid var(--border)}
+
+/* Visualizer wall */
+.viz-wall{
+  flex-shrink:0;height:60px;
+  background:rgba(0,0,0,0.2);
+  position:relative;overflow:hidden;
+  border-bottom:1px solid var(--border);
+}
+#vizCanvas{display:block;width:100%;height:100%}
+
+/* Chat messages */
+.chat-feed{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:5px}
+.chat-feed::-webkit-scrollbar{width:2px}
+.chat-feed::-webkit-scrollbar-thumb{background:rgba(255,94,0,0.15)}
+
+.msg{display:flex;gap:7px;align-items:flex-start;animation:msgIn .25s ease}
+@keyframes msgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.msg-av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#000;flex-shrink:0;margin-top:1px}
+.msg-body{flex:1;min-width:0}
+.msg-header{display:flex;align-items:baseline;gap:5px;margin-bottom:1px}
+.msg-name{font-size:10px;font-weight:600;line-height:1}
+.msg-time{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted)}
+.msg-text{font-size:11px;color:rgba(216,238,255,.8);line-height:1.4;word-break:break-word}
+.msg.tip{padding:5px 10px;background:rgba(255,214,0,0.06);border:1px solid rgba(255,214,0,0.15);border-radius:8px;align-items:center}
+.msg.system{align-items:center}
+.msg.system .msg-text{font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(255,94,0,0.5);font-style:italic;padding:3px 7px;background:rgba(255,94,0,0.04);border-radius:5px;border-left:2px solid rgba(255,94,0,0.25)}
+
+/* Timestamp markers on waveform-hover */
+.marker{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,214,0,0.35)}
+
+/* REACTIONS flying */
+.fly-react{position:fixed;pointer-events:none;z-index:500;font-size:22px;animation:flyUp 2.5s ease-out forwards}
+@keyframes flyUp{0%{opacity:1;transform:translateY(0) scale(1) rotate(-5deg)}30%{opacity:.9;transform:translateY(-40px) scale(1.15) rotate(5deg)}100%{opacity:0;transform:translateY(-160px) scale(.7) rotate(-10deg)}}
+
+/* TIP BURST */
+.tip-burst{position:fixed;z-index:600;animation:tipBurst .6s ease-out forwards;pointer-events:none}
+@keyframes tipBurst{0%{opacity:1;transform:scale(.5)}60%{opacity:1;transform:scale(1.2)}100%{opacity:0;transform:scale(1)}}
+
+/* CHAT INPUT */
+.chat-input-wrap{flex-shrink:0;padding:10px 12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+.react-row{display:flex;gap:4px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+.react-row::-webkit-scrollbar{display:none}
+.react-pill{padding:3px 8px;border-radius:12px;font-size:14px;cursor:pointer;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);flex-shrink:0;transition:all .2s}
+.react-pill:hover{background:rgba(255,94,0,0.12);border-color:rgba(255,94,0,0.3);transform:scale(1.15)}
+
+.tip-row{display:flex;gap:5px;align-items:center}
+.tip-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:.15em;flex-shrink:0}
+.tip-btns{display:flex;gap:3px}
+.tip-btn{padding:3px 8px;border-radius:8px;border:1px solid rgba(255,214,0,0.2);background:rgba(255,214,0,0.05);color:rgba(255,214,0,.7);font-family:'Share Tech Mono',monospace;font-size:8px;cursor:pointer;transition:all .2s}
+.tip-btn:hover{border-color:var(--gold);background:rgba(255,214,0,0.12);color:var(--gold)}
+
+.input-row{display:flex;gap:5px}
+.chat-input{flex:1;background:rgba(0,0,0,0.4);border:1px solid rgba(255,94,0,0.1);border-radius:9px;padding:7px 10px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;outline:none;transition:border-color .2s}
+.chat-input:focus{border-color:rgba(255,94,0,0.35)}
+.chat-input::placeholder{color:rgba(255,94,0,0.2)}
+.send-btn{width:34px;height:34px;border-radius:9px;background:rgba(255,94,0,0.12);border:1px solid rgba(255,94,0,0.3);color:var(--hot);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;font-size:14px}
+.send-btn:hover{background:rgba(255,94,0,0.25);box-shadow:0 0 16px rgba(255,94,0,0.3)}
+
+/* ── LISTENERS PANEL ── */
+.listeners-panel{width:220px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;background:rgba(3,6,14,0.7)}
+.lp-head{padding:10px 12px 6px;border-bottom:1px solid var(--border);font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:.3em;color:rgba(255,94,0,0.45);display:flex;align-items:center;gap:6px}
+.lp-head::after{content:'';flex:1;height:1px;background:rgba(255,94,0,0.07)}
+.lp-list{flex:1;overflow-y:auto;padding:6px 8px}
+.lp-list::-webkit-scrollbar{width:2px}
+.lp-list::-webkit-scrollbar-thumb{background:rgba(255,94,0,0.1)}
+.listener-item{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:8px;transition:background .2s;cursor:default}
+.listener-item:hover{background:rgba(255,255,255,0.02)}
+.l-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;flex-shrink:0;position:relative}
+.l-status{position:absolute;bottom:-1px;right:-1px;width:8px;height:8px;border-radius:50%;border:1.5px solid var(--bg)}
+.l-name{flex:1;font-size:11px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.l-react{font-size:12px;animation:reactBounce .5s ease-out}
+@keyframes reactBounce{0%{transform:scale(0)}70%{transform:scale(1.3)}100%{transform:scale(1)}}
+.l-tip{font-family:'Orbitron',monospace;font-size:8px;color:var(--gold);font-weight:700;flex-shrink:0}
+
+.top-tipper{margin:6px 8px;padding:8px 10px;border-radius:8px;background:rgba(255,214,0,0.06);border:1px solid rgba(255,214,0,0.15);display:flex;align-items:center;gap:7px}
+.tt-icon{font-size:14px}
+.tt-info{flex:1;min-width:0}
+.tt-name{font-size:10px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tt-amt{font-family:'Orbitron',monospace;font-size:11px;color:var(--gold);font-weight:700;flex-shrink:0}
+
+/* ── ADMIN PANEL ── */
+.admin{width:300px;flex-shrink:0;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;position:relative}
+.admin::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--hot),var(--gold),var(--hot),transparent)}
+
+.admin-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.atab{flex:1;padding:11px 4px;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:.12em;color:var(--muted);text-align:center;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.atab.on{color:var(--hot);border-color:var(--hot)}
+
+.admin-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.admin-body::-webkit-scrollbar{width:2px}
+.admin-body::-webkit-scrollbar-thumb{background:rgba(255,94,0,0.15)}
+.atab-pane{display:none;flex-direction:column;gap:10px}
+.atab-pane.on{display:flex}
+
+.fl{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:.25em;color:var(--muted);margin-bottom:4px}
+.fi{width:100%;padding:8px 10px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.07);border-radius:7px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:10px;outline:none;transition:border-color .2s}
+.fi:focus{border-color:rgba(255,94,0,0.4)}
+.fi::placeholder{color:rgba(200,220,255,0.12)}
+.sec{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:.3em;color:rgba(255,94,0,0.45);display:flex;align-items:center;gap:6px}
+.sec::after{content:'';flex:1;height:1px;background:rgba(255,94,0,0.07)}
+.act-btn{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,94,0,0.3);background:rgba(255,94,0,0.08);color:var(--hot);font-family:'Orbitron',monospace;font-size:9px;font-weight:700;letter-spacing:.2em;cursor:pointer;transition:all .2s}
+.act-btn:hover{background:rgba(255,94,0,0.18);box-shadow:0 0 20px rgba(255,94,0,0.2)}
+.conf{font-family:'Share Tech Mono',monospace;font-size:8px;text-align:center;min-height:14px;letter-spacing:.15em}
+
+/* queue admin */
+.drop-item{padding:9px 10px;border-radius:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:8px;cursor:pointer;transition:all .2s}
+.drop-item:hover{border-color:rgba(255,94,0,0.2)}
+.drop-item.now-playing{border-color:rgba(255,94,0,0.4);background:rgba(255,94,0,0.06)}
+.di-emoji{font-size:18px;flex-shrink:0}
+.di-info{flex:1;min-width:0}
+.di-name{font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.di-meta{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:1px}
+.di-play{padding:4px 8px;border-radius:5px;border:1px solid rgba(255,94,0,0.2);background:rgba(255,94,0,0.05);color:var(--hot);font-family:'Share Tech Mono',monospace;font-size:7px;cursor:pointer}
+.di-play:hover{background:rgba(255,94,0,0.15)}
+
+/* Settings toggles */
+.srow{display:flex;align-items:center;justify-content:space-between;padding:4px 0}
+.s-lbl{font-size:11px;color:var(--text)}
+.tog{width:34px;height:18px;border-radius:9px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);cursor:pointer;position:relative;transition:all .3s;flex-shrink:0}
+.tog.on{background:rgba(255,94,0,0.2);border-color:var(--hot);box-shadow:0 0 10px rgba(255,94,0,0.2)}
+.tog-thumb{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:all .3s}
+.tog.on .tog-thumb{left:18px;background:var(--hot);box-shadow:0 0 6px var(--hot)}
+
+/* toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);z-index:1000;padding:8px 16px;border-radius:20px;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.1em;white-space:nowrap;opacity:0;pointer-events:none;transition:all .3s}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.tip{background:rgba(255,214,0,0.12);border:1px solid rgba(255,214,0,0.45);color:var(--gold)}
+.toast.info{background:rgba(255,94,0,0.1);border:1px solid rgba(255,94,0,0.4);color:var(--hot)}
+.toast.join{background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.35);color:var(--green)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── ROOMS SIDEBAR ── -->
+<div class="rooms-sidebar">
+  <div class="rs-head">
+    <div class="rs-brand">
+      <div class="rs-icon">🎧</div>
+      <div>
+        <div class="rs-title">DROP ROOMS</div>
+      </div>
+    </div>
+    <div class="rs-sub">AUDIO · MEDIA EMPIRE</div>
+  </div>
+  <div class="rs-section">LIVE NOW</div>
+  <div class="room-list" id="roomList"></div>
+  <button class="create-room-btn" onclick="showAdminTab('drop',document.querySelectorAll(\'.atab\')[1])">+ DROP A ROOM</button>
+</div>
+
+<!-- ── MAIN STAGE ── -->
+<div class="stage">
+
+  <!-- Room Header -->
+  <div class="room-header">
+    <div class="rh-bg" id="rhBg"></div>
+    <div class="rh-content">
+      <div class="rh-av" id="rhAv">
+        <div class="rh-av-glow" id="rhGlow"></div>
+        <span id="rhEmoji" style="position:relative;z-index:1">🎵</span>
+      </div>
+      <div class="rh-info">
+        <div class="rh-track" id="rhTrack">Loading...</div>
+        <div class="rh-creator">
+          <span id="rhCreator">—</span>
+          <span id="rhTagBadge" style="padding:2px 7px;border-radius:6px;font-size:7px;letter-spacing:.2em"></span>
+          <span id="rhExclusive" style="display:none;padding:2px 7px;border-radius:6px;background:rgba(255,214,0,0.1);color:var(--gold);border:1px solid rgba(255,214,0,0.25);font-size:7px;letter-spacing:.2em">👑 VIP EXCLUSIVE</span>
+        </div>
+      </div>
+      <div class="rh-right">
+        <div class="rh-listeners">
+          <div id="listenerCount" class="rh-l-num">—</div>
+          <div class="rh-l-lbl">LISTENING</div>
+        </div>
+        <button class="rh-btn live-dot-btn">● LIVE</button>
+        <button class="rh-btn" onclick="shareRoom()">🔗 SHARE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Player -->
+  <div class="player-wrap">
+    <!-- Waveform -->
+    <div class="waveform-container" id="waveformContainer" onclick="seekTo(event)">
+      <canvas id="waveCanvas"></canvas>
+      <div class="waveform-overlay"></div>
+      <div class="playhead" id="playhead"></div>
+      <div class="timestamp-tip" id="tsTip"></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="ctrl-group">
+        <button class="ctrl-btn" onclick="prevTrack()" title="Previous">⏮</button>
+        <button class="play-btn" id="playBtn" onclick="togglePlay()">▶</button>
+        <button class="ctrl-btn" onclick="nextTrack()" title="Next">⏭</button>
+        <button class="ctrl-btn" id="shuffleBtn" onclick="toggleShuffle()" title="Shuffle">⇄</button>
+        <button class="ctrl-btn" id="repeatBtn" onclick="toggleRepeat()" title="Repeat">↻</button>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-track" id="progressTrack" onclick="seekPercent(event)">
+          <div class="progress-fill" id="progressFill" style="width:0%"></div>
+        </div>
+        <div class="time-row">
+          <span id="timeCur">0:00</span>
+          <span id="timeTot">0:00</span>
+        </div>
+      </div>
+
+      <div class="vol-wrap">
+        <div class="vol-icon" onclick="toggleMute()" id="volIcon">🔊</div>
+        <div class="vol-track" id="volTrack" onclick="setVol(event)">
+          <div class="vol-fill" id="volFill" style="width:75%"></div>
+        </div>
+      </div>
+
+      <!-- EQ bars -->
+      <div class="eq-bars" id="eqBars"></div>
+    </div>
+  </div>
+
+  <!-- Queue -->
+  <div class="queue-section">
+    <div class="queue-head">
+      <div class="queue-title">UP NEXT IN THIS ROOM</div>
+    </div>
+    <div class="queue-list" id="queueList"></div>
+  </div>
+
+  <!-- Room social area -->
+  <div class="room-social">
+
+    <!-- Chat -->
+    <div class="chat-zone">
+      <!-- Visualizer -->
+      <div class="viz-wall">
+        <canvas id="vizCanvas"></canvas>
+      </div>
+
+      <div class="chat-feed" id="chatFeed"></div>
+
+      <div class="chat-input-wrap">
+        <div class="react-row">
+          <button class="react-pill" onclick="fireReact('🔥')">🔥</button>
+          <button class="react-pill" onclick="fireReact('💯')">💯</button>
+          <button class="react-pill" onclick="fireReact('🎵')">🎵</button>
+          <button class="react-pill" onclick="fireReact('✨')">✨</button>
+          <button class="react-pill" onclick="fireReact('👑')">👑</button>
+          <button class="react-pill" onclick="fireReact('⚡')">⚡</button>
+          <button class="react-pill" onclick="fireReact('😤')">😤</button>
+          <button class="react-pill" onclick="fireReact('🚀')">🚀</button>
+          <button class="react-pill" onclick="fireReact('💎')">💎</button>
+          <button class="react-pill" onclick="fireReact('🎯')">🎯</button>
+          <button class="react-pill" onclick="fireReact('🌊')">🌊</button>
+        </div>
+        <div class="tip-row">
+          <span class="tip-lbl">TIP 💰</span>
+          <div class="tip-btns">
+            <button class="tip-btn" onclick="sendTip(25)">25 ME</button>
+            <button class="tip-btn" onclick="sendTip(50)">50 ME</button>
+            <button class="tip-btn" onclick="sendTip(100)">100 ME</button>
+            <button class="tip-btn" onclick="sendTip(500)">500 ME</button>
+          </div>
+        </div>
+        <div class="input-row">
+          <input class="chat-input" id="chatInput" placeholder="Say something in the drop room..." onkeydown="if(event.key==='Enter'){event.preventDefault();sendMsg()}"/>
+          <button class="send-btn" onclick="sendMsg()">➤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Listeners -->
+    <div class="listeners-panel">
+      <div class="lp-head">LISTENING NOW</div>
+      <div class="top-tipper" id="topTipper" style="display:none">
+        <div class="tt-icon">💰</div>
+        <div class="tt-info">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:.15em;margin-bottom:2px">TOP TIPPER</div>
+          <div class="tt-name" id="topTipperName">—</div>
+        </div>
+        <div class="tt-amt" id="topTipperAmt">0 ME</div>
+      </div>
+      <div class="lp-list" id="listenerList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADMIN PANEL ── -->
+<div class="admin">
+  <div style="padding:14px 14px 10px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:8px">
+    <div style="width:30px;height:30px;border-radius:8px;background:rgba(255,94,0,0.1);border:1px solid rgba(255,94,0,0.3);display:flex;align-items:center;justify-content:center;font-size:14px">🎧</div>
+    <div>
+      <div style="font-family:'Orbitron',monospace;font-size:10px;font-weight:700;color:var(--hot);letter-spacing:.2em">ROOM ADMIN</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:1px">Drop · Configure · Control</div>
+    </div>
+  </div>
+  <div class="admin-tabs">
+    <div class="atab on" onclick="showAdminTab('rooms',this)">ROOMS</div>
+    <div class="atab" onclick="showAdminTab('drop',this)">DROP</div>
+    <div class="atab" onclick="showAdminTab('queue',this)">QUEUE</div>
+    <div class="atab" onclick="showAdminTab('settings',this)">SETTINGS</div>
+  </div>
+  <div class="admin-body">
+
+    <!-- ROOMS -->
+    <div class="atab-pane on" id="ap-rooms">
+      <div class="sec">ACTIVE ROOMS</div>
+      <div id="adminRooms" style="display:flex;flex-direction:column;gap:5px"></div>
+      <div class="sec" style="margin-top:4px">WALLET</div>
+      <div style="padding:10px 12px;background:rgba(255,214,0,0.05);border:1px solid rgba(255,214,0,0.15);border-radius:9px">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(255,214,0,0.45);letter-spacing:.2em;margin-bottom:4px">YOUR BALANCE</div>
+        <div style="font-family:'Orbitron',monospace;font-size:22px;font-weight:700;color:var(--gold)" id="adminWallet">2,800 ME</div>
+      </div>
+      <div style="display:flex;gap:5px">
+        <button onclick="addME(500)"  style="flex:1;padding:7px;border-radius:7px;border:1px solid rgba(255,214,0,0.15);background:rgba(255,214,0,0.04);color:rgba(255,214,0,0.6);font-family:'Share Tech Mono',monospace;font-size:8px;cursor:pointer">+500</button>
+        <button onclick="addME(1000)" style="flex:1;padding:7px;border-radius:7px;border:1px solid rgba(255,214,0,0.15);background:rgba(255,214,0,0.04);color:rgba(255,214,0,0.6);font-family:'Share Tech Mono',monospace;font-size:8px;cursor:pointer">+1K</button>
+        <button onclick="addME(5000)" style="flex:1;padding:7px;border-radius:7px;border:1px solid rgba(255,214,0,0.15);background:rgba(255,214,0,0.04);color:rgba(255,214,0,0.6);font-family:'Share Tech Mono',monospace;font-size:8px;cursor:pointer">+5K</button>
+      </div>
+    </div>
+
+    <!-- DROP -->
+    <div class="atab-pane" id="ap-drop">
+      <div class="sec">DROP A TRACK</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div><div class="fl">TRACK TITLE</div><input class="fi" id="d-title" placeholder="e.g. Midnight Session Vol.3"/></div>
+        <div><div class="fl">CREATOR / ARTIST</div><input class="fi" id="d-creator" placeholder="e.g. Solai Style"/></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div><div class="fl">EMOJI / ART</div><input class="fi" id="d-emoji" value="🎵" maxlength="2" style="text-align:center;font-size:18px"/></div>
+          <div><div class="fl">DURATION (M:SS)</div><input class="fi" id="d-dur" placeholder="3:42"/></div>
+        </div>
+        <div><div class="fl">AUDIO URL (optional)</div><input class="fi" id="d-url" placeholder="https://... or leave blank"/></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div>
+            <div class="fl">GENRE TAG</div>
+            <select class="fi" id="d-genre" style="cursor:pointer">
+              <option>AFROBEATS</option><option>R&B / SOUL</option><option>HIP HOP</option>
+              <option>TRAP</option><option>AMAPIANO</option><option>POP</option>
+              <option>DRILL</option><option>DANCEHALL</option><option>LO-FI</option>
+            </select>
+          </div>
+          <div>
+            <div class="fl">VIP EXCLUSIVE?</div>
+            <select class="fi" id="d-vip" style="cursor:pointer">
+              <option value="false">Open to All</option>
+              <option value="true">👑 VIP Only</option>
+            </select>
+          </div>
+        </div>
+        <button class="act-btn" onclick="dropTrack()">🎧 DROP TO ROOM</button>
+        <div class="conf" id="dropConf" style="color:var(--green)"></div>
+      </div>
+
+      <div class="sec" style="margin-top:4px">CREATE NEW ROOM</div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div><div class="fl">ROOM NAME</div><input class="fi" id="nr-name" placeholder="e.g. Late Night Session"/></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div><div class="fl">EMOJI</div><input class="fi" id="nr-emoji" value="🔊" maxlength="2" style="text-align:center;font-size:18px"/></div>
+          <div><div class="fl">ACCENT COLOR</div>
+            <select class="fi" id="nr-color" style="cursor:pointer">
+              <option value="#FF5E00">ORANGE</option>
+              <option value="#00E5FF">TEAL</option>
+              <option value="#B07FFF">PURPLE</option>
+              <option value="#00FF88">GREEN</option>
+              <option value="#FFD600">GOLD</option>
+              <option value="#FF6B9D">PINK</option>
+            </select>
+          </div>
+        </div>
+        <button class="act-btn" style="font-size:9px" onclick="createRoom()">+ CREATE ROOM</button>
+      </div>
+    </div>
+
+    <!-- QUEUE -->
+    <div class="atab-pane" id="ap-queue">
+      <div class="sec">NOW PLAYING / QUEUE</div>
+      <div id="adminQueue" style="display:flex;flex-direction:column;gap:5px"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="atab-pane" id="ap-settings">
+      <div class="sec">ROOM SETTINGS</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div class="srow"><span class="s-lbl">Allow tipping</span><div class="tog on" id="tog-tip" onclick="this.classList.toggle('on')"><div class="tog-thumb"></div></div></div>
+        <div class="srow"><span class="s-lbl">Chat enabled</span><div class="tog on" id="tog-chat" onclick="this.classList.toggle('on')"><div class="tog-thumb"></div></div></div>
+        <div class="srow"><span class="s-lbl">Show listener count</span><div class="tog on" id="tog-listeners" onclick="this.classList.toggle('on')"><div class="tog-thumb"></div></div></div>
+        <div class="srow"><span class="s-lbl">Auto-advance queue</span><div class="tog on" id="tog-auto" onclick="this.classList.toggle('on')"><div class="tog-thumb"></div></div></div>
+        <div class="srow"><span class="s-lbl">Slow mode chat</span><div class="tog" id="tog-slow" onclick="this.classList.toggle('on')"><div class="tog-thumb"></div></div></div>
+        <div class="srow"><span class="s-lbl">VIP only room</span><div class="tog" id="tog-vip" onclick="this.classList.toggle('on')"><div class="tog-thumb"></div></div></div>
+      </div>
+      <div class="sec" style="margin-top:8px">TIP SPLIT</div>
+      <div style="font-size:10px;color:var(--muted);line-height:1.6">
+        Creator receives 80% of all tips.<br/>
+        Platform fee: 5%.<br/>
+        Room host share: 15%.
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────
+const DR = {
+  wallet: 2800, tips: {}, totalTips: 0,
+  playing: false, progress: 0, volume: 75, muted: false,
+  shuffle: false, repeat: false,
+  currentRoom: 0, currentTrack: 0,
+  animFrame: null, playInterval: null,
+  rooms: [], queue: [],
+};
+
+// ── SEED DATA ──────────────────────────────────────────────────────
+const SEED_ROOMS = [
+  { name:'Late Night Freestyle',  creator:'Solai Style',  emoji:'🌙', color:'#FF5E00', listeners:84,  live:true, exclusive:false },
+  { name:'Afrobeats Exclusively', creator:'Wave Studio',  emoji:'🌍', color:'#FFD600', listeners:212, live:true, exclusive:true  },
+  { name:'Trap House Sessions',   creator:'Nexus Create', emoji:'🔊', color:'#B07FFF', listeners:56,  live:true, exclusive:false },
+  { name:'R&B Sunday Vibes',      creator:'Deep Vision',  emoji:'🕯', color:'#FF6B9D', listeners:143, live:false,exclusive:false },
+];
+
+const SEED_QUEUE = [
+  { title:'Midnight Frequency',   creator:'Solai Style',  emoji:'🌙', dur:'3:42', genre:'R&B / SOUL',  exclusive:false, url:'' },
+  { title:'Lagos to London',      creator:'Wave Studio',  emoji:'🌍', dur:'4:11', genre:'AFROBEATS',    exclusive:true,  url:'' },
+  { title:'No Cap No Filter',     creator:'Nexus Create', emoji:'⚡', dur:'2:58', genre:'TRAP',         exclusive:false, url:'' },
+  { title:'Elevation',            creator:'Solai Style',  emoji:'✨', dur:'5:02', genre:'AMAPIANO',     exclusive:false, url:'' },
+  { title:'Coded',                creator:'Deep Vision',  emoji:'🔒', dur:'3:27', genre:'HIP HOP',      exclusive:true,  url:'' },
+  { title:'Golden Hour',          creator:'Wave Studio',  emoji:'🌅', dur:'4:33', genre:'POP',          exclusive:false, url:'' },
+];
+
+const SEED_LISTENERS = [
+  { name:'Zara K',     color:'#00E5FF', tips:350, status:'active',  reaction:'🔥' },
+  { name:'OracleKing', color:'#FFD600', tips:200, status:'active',  reaction:'' },
+  { name:'Marcus_ME',  color:'#00FF88', tips:100, status:'active',  reaction:'💯' },
+  { name:'SolaiStake', color:'#B07FFF', tips:50,  status:'active',  reaction:'' },
+  { name:'WaveRider',  color:'#FF6B9D', tips:0,   status:'active',  reaction:'' },
+  { name:'NexusFan',   color:'#FF8C00', tips:75,  status:'listening',reaction:'🎵' },
+  { name:'DeepGroove', color:'#00E5FF', tips:0,   status:'listening',reaction:'' },
+  { name:'BeatSeeker', color:'#B07FFF', tips:25,  status:'away',    reaction:'' },
+  { name:'You',        color:'#FF5E00', tips:0,   status:'active',  reaction:'', isMe:true },
+];
+
+const SEED_MSGS = [
+  { who:'Zara K',     color:'#00E5FF', text:'this beat is immaculate 😭' },
+  { who:'OracleKing', color:'#FFD600', text:'dropped 200 ME — keep this going all night' },
+  { who:'Marcus_ME',  color:'#00FF88', text:'the frequency shift at 1:30 is CRAZY' },
+  { who:'system',     color:'',        text:'OracleKing tipped 200 ME 💰', system:true },
+  { who:'SolaiStake', color:'#B07FFF', text:'who produced this?? need a collab asap' },
+  { who:'WaveRider',  color:'#FF6B9D', text:'first time in a drop room and I'm hooked' },
+];
+
+// ── WAVEFORM ──────────────────────────────────────────────────────
+const waveCanvas = document.getElementById('waveCanvas');
+const wCtx = waveCanvas.getContext('2d');
+let waveData = [];
+
+function genWave(n=200) {
+  return Array.from({length:n},()=>(Math.random()*.7+.15)*(Math.random()<.3?.4:1));
+}
+
+function resizeWave() {
+  const c = document.getElementById('waveformContainer');
+  waveCanvas.width  = c.clientWidth;
+  waveCanvas.height = c.clientHeight;
+  drawWave();
+}
+
+function drawWave() {
+  const W = waveCanvas.width, H = waveCanvas.height;
+  wCtx.clearRect(0,0,W,H);
+  if (!waveData.length) return;
+  const barW = W / waveData.length;
+  const played = DR.progress / 100;
+  waveData.forEach((v,i) => {
+    const x = i * barW;
+    const h = v * H * .85;
+    const y = (H - h) / 2;
+    const pct = i / waveData.length;
+    if (pct < played) {
+      wCtx.fillStyle = `rgba(255,94,0,${0.6+v*.3})`;
+    } else {
+      wCtx.fillStyle = `rgba(100,140,180,${0.2+v*.15})`;
+    }
+    wCtx.fillRect(x+.5, y, Math.max(1.5, barW-.8), h);
+  });
+}
+
+// ── VIZ CANVAS ────────────────────────────────────────────────────
+const vizCanvas = document.getElementById('vizCanvas');
+const vCtx = vizCanvas.getContext('2d');
+let vizPhase = 0;
+
+function resizeViz() {
+  const wrap = vizCanvas.parentElement;
+  vizCanvas.width  = wrap.clientWidth;
+  vizCanvas.height = wrap.clientHeight;
+}
+
+function drawViz() {
+  const W = vizCanvas.width, H = vizCanvas.height;
+  vCtx.clearRect(0,0,W,H);
+  if (!DR.playing) {
+    // Static quiet bars
+    const bars = 80;
+    for (let i=0;i<bars;i++) {
+      const x = (i/bars)*W;
+      const h = 2+Math.sin(i*.4+vizPhase*.1)*2;
+      vCtx.fillStyle='rgba(255,94,0,0.12)';
+      vCtx.fillRect(x,H/2-h/2,W/bars-.5,h);
+    }
+    return;
+  }
+  const bars = 80;
+  for (let i=0;i<bars;i++) {
+    const x = (i/bars)*W;
+    const t = Date.now()/300;
+    const h = Math.abs(Math.sin(i*.18+t)*Math.cos(i*.07+t*.7))*H*.8+2;
+    const pct = i/bars;
+    const r = Math.floor(255),g=Math.floor(94+pct*100),b=Math.floor(pct*120);
+    vCtx.fillStyle=`rgba(${r},${g},${b},${.35+h/H*.5})`;
+    vCtx.fillRect(x,(H-h)/2,W/bars-.5,h);
+  }
+  vizPhase++;
+  requestAnimationFrame(drawViz);
+}
+
+// ── EQ BARS ───────────────────────────────────────────────────────
+function buildEQ() {
+  const c = document.getElementById('eqBars');
+  c.innerHTML = '';
+  const heights = [8,14,10,18,12,22,16,10,20,14];
+  const durs    = ['.3s','.4s','.35s','.5s','.38s','.42s','.45s','.32s','.47s','.36s'];
+  heights.forEach((h,i) => {
+    const bar = document.createElement('div');
+    bar.className = 'eq-bar';
+    bar.style.cssText = `--h:${h}px;--dur:${durs[i]};animation-play-state:${DR.playing?'running':'paused'}`;
+    c.appendChild(bar);
+  });
+}
+
+function updateEQ() {
+  document.querySelectorAll('.eq-bar').forEach(b => {
+    b.style.animationPlayState = DR.playing ? 'running' : 'paused';
+  });
+}
+
+// ── PLAYBACK ──────────────────────────────────────────────────────
+function togglePlay() {
+  DR.playing = !DR.playing;
+  document.getElementById('playBtn').textContent = DR.playing ? '⏸' : '▶';
+  updateEQ();
+  if (DR.playing) {
+    drawViz();
+    startProgress();
+    if (waveData.length) addSysMsg(null, `▶ Now playing: ${DR.queue[DR.currentTrack]?.title || 'Track'}`);
+  } else {
+    clearInterval(DR.playInterval);
+  }
+  drawWave();
+}
+
+function startProgress() {
+  clearInterval(DR.playInterval);
+  DR.playInterval = setInterval(() => {
+    DR.progress = Math.min(100, DR.progress + (.1 * (100/getTrackSecs())));
+    if (DR.progress >= 100) {
+      if (DR.repeat) { DR.progress = 0; }
+      else { nextTrack(); return; }
+    }
+    document.getElementById('progressFill').style.width = DR.progress + '%';
+    document.getElementById('playhead').style.left = DR.progress + '%';
+    document.getElementById('timeCur').textContent = secToTime(DR.progress/100*getTrackSecs());
+    drawWave();
+  }, 100);
+}
+
+function getTrackSecs() {
+  const t = DR.queue[DR.currentTrack];
+  if (!t) return 200;
+  const [m,s] = (t.dur||'3:30').split(':').map(Number);
+  return m*60+(s||0);
+}
+
+function seekPercent(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  DR.progress = ((e.clientX-rect.left)/rect.width)*100;
+  drawWave();
+}
+
+function seekTo(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  DR.progress = ((e.clientX-rect.left)/rect.width)*100;
+  drawWave();
+}
+
+function secToTime(s) {
+  const m = Math.floor(s/60);
+  return `${m}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+}
+
+function nextTrack() {
+  DR.progress = 0;
+  DR.currentTrack = (DR.currentTrack+1) % DR.queue.length;
+  loadTrack(DR.currentTrack);
+}
+function prevTrack() {
+  DR.progress = 0;
+  DR.currentTrack = (DR.currentTrack-1+DR.queue.length) % DR.queue.length;
+  loadTrack(DR.currentTrack);
+}
+
+function toggleShuffle() {
+  DR.shuffle = !DR.shuffle;
+  document.getElementById('shuffleBtn').classList.toggle('active', DR.shuffle);
+}
+function toggleRepeat() {
+  DR.repeat = !DR.repeat;
+  document.getElementById('repeatBtn').classList.toggle('active', DR.repeat);
+}
+function toggleMute() {
+  DR.muted = !DR.muted;
+  document.getElementById('volIcon').textContent = DR.muted ? '🔇' : '🔊';
+}
+function setVol(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  DR.volume = Math.round(((e.clientX-rect.left)/rect.width)*100);
+  document.getElementById('volFill').style.width = DR.volume+'%';
+}
+
+// ── TRACK LOADING ─────────────────────────────────────────────────
+function loadTrack(idx) {
+  const t = DR.queue[idx];
+  if (!t) return;
+  DR.currentTrack = idx;
+  DR.progress = 0;
+
+  document.getElementById('rhTrack').textContent   = t.title;
+  document.getElementById('rhCreator').textContent = t.creator.toUpperCase();
+  document.getElementById('rhEmoji').textContent   = t.emoji;
+  document.getElementById('timeTot').textContent   = t.dur||'0:00';
+  document.getElementById('rhExclusive').style.display = t.exclusive ? 'inline-flex' : 'none';
+
+  const tag = document.getElementById('rhTagBadge');
+  tag.textContent = t.genre||'';
+  tag.style.background='rgba(255,94,0,0.1)';
+  tag.style.color='rgba(255,94,0,0.7)';
+  tag.style.border='1px solid rgba(255,94,0,0.2)';
+
+  // New waveform
+  waveData = genWave(200);
+  drawWave();
+  renderQueue();
+  addSysMsg(null, `↪ Loaded "${t.title}" by ${t.creator}`);
+  if (DR.playing) startProgress();
+}
+
+// ── ROOMS ─────────────────────────────────────────────────────────
+function renderRoomList() {
+  const list = document.getElementById('roomList');
+  list.innerHTML = DR.rooms.map((r,i) => `
+    <div class="room-item ${i===DR.currentRoom?'active':''}" onclick="switchRoom(${i})">
+      <div class="ri-top">
+        <div class="ri-av" style="background:${r.color}18;border:1px solid ${r.color}30">
+          <div class="ri-av-ring" style="border-color:${r.color}30;animation-duration:${1.5+i*.3}s"></div>
+          ${r.emoji}
+        </div>
+        <div class="ri-info">
+          <div class="ri-name">${r.name}</div>
+          <div class="ri-creator">${r.creator.toUpperCase()}</div>
+        </div>
+      </div>
+      <div class="ri-bottom">
+        <div class="ri-live-badge" style="background:${r.live?'rgba(0,255,136,0.08)':'rgba(255,255,255,0.03)'};border:1px solid ${r.live?'rgba(0,255,136,0.2)':'rgba(255,255,255,0.06)'};color:${r.live?'var(--green)':'var(--muted)'}">
+          <div class="ri-live-dot" style="background:${r.live?'var(--green)':'rgba(255,255,255,0.2)'}"></div>
+          ${r.live?'LIVE':'OFFLINE'}
+        </div>
+        <div class="ri-listeners">${r.listeners} 👂</div>
+        ${r.exclusive?'<div style="font-family:\'Share Tech Mono\',monospace;font-size:7px;padding:2px 5px;border-radius:5px;background:rgba(255,214,0,0.08);color:rgba(255,214,0,0.6);border:1px solid rgba(255,214,0,0.2);margin-left:auto">👑 VIP</div>':''}
+      </div>
+    </div>`).join('');
+
+  renderAdminRooms();
+}
+
+function switchRoom(i) {
+  DR.currentRoom = i;
+  const r = DR.rooms[i];
+  document.getElementById('listenerCount').textContent = r.listeners;
+  renderRoomList();
+  addSysMsg(null, `Joined "${r.name}" by ${r.creator}`);
+}
+
+function renderAdminRooms() {
+  const el = document.getElementById('adminRooms');
+  el.innerHTML = DR.rooms.map((r,i) => `
+    <div class="drop-item ${i===DR.currentRoom?'now-playing':''}">
+      <div class="di-emoji">${r.emoji}</div>
+      <div class="di-info">
+        <div class="di-name">${r.name}</div>
+        <div class="di-meta">${r.creator} · ${r.listeners} listening</div>
+      </div>
+      <button class="di-play" onclick="switchRoom(${i})">JOIN</button>
+    </div>`).join('');
+}
+
+// ── QUEUE ─────────────────────────────────────────────────────────
+function renderQueue() {
+  const list = document.getElementById('queueList');
+  list.innerHTML = DR.queue.map((t,i) => `
+    <div class="q-item ${i===DR.currentTrack?'playing':''}" onclick="loadTrackPlay(${i})">
+      ${i===DR.currentTrack?'':''}
+      ${t.exclusive?'<div class="q-exclusive">👑 VIP</div>':''}
+      <div class="q-art" style="background:rgba(255,94,0,0.08);border:1px solid rgba(255,94,0,0.12)">
+        <div class="q-art-bg" style="background:rgba(255,${50+i*30},0,0.3)"></div>
+        <div class="q-art-icon">${t.emoji}</div>
+      </div>
+      <div class="q-name">${t.title}</div>
+      <div class="q-creator">${t.creator}</div>
+      <div class="q-dur">${t.dur} · ${t.genre}</div>
+    </div>`).join('');
+  renderAdminQueue();
+}
+
+function renderAdminQueue() {
+  const el = document.getElementById('adminQueue');
+  el.innerHTML = DR.queue.map((t,i) => `
+    <div class="drop-item ${i===DR.currentTrack?'now-playing':''}">
+      <div class="di-emoji">${t.emoji}</div>
+      <div class="di-info">
+        <div class="di-name">${t.title}</div>
+        <div class="di-meta">${t.creator} · ${t.dur}</div>
+      </div>
+      <button class="di-play" onclick="loadTrackPlay(${i})">${i===DR.currentTrack?'NOW':'PLAY'}</button>
+    </div>`).join('');
+}
+
+function loadTrackPlay(i) {
+  loadTrack(i);
+  if (!DR.playing) togglePlay();
+}
+
+// ── LISTENERS ─────────────────────────────────────────────────────
+function renderListeners() {
+  const list = document.getElementById('listenerList');
+  list.innerHTML = SEED_LISTENERS.map(l => `
+    <div class="listener-item" id="li-${l.name.replace(/\s/g,'_')}">
+      <div class="l-av" style="background:${l.color};${l.isMe?'border:2px solid rgba(255,255,255,0.4)':''}">
+        ${l.name[0]}
+        <div class="l-status" style="background:${l.status==='active'?'var(--green)':l.status==='listening'?'#FFD600':'rgba(255,255,255,0.2)'}"></div>
+      </div>
+      <div class="l-name" style="${l.isMe?'color:var(--hot)':''}">${l.isMe?'You ('+l.name+')':l.name}</div>
+      ${l.reaction?`<div class="l-react">${l.reaction}</div>`:''}
+      ${l.tips>0?`<div class="l-tip">${l.tips} ME</div>`:''}
+    </div>`).join('');
+  updateTopTipper();
+}
+
+function updateTopTipper() {
+  const top = Object.entries(DR.tips).sort((a,b)=>b[1]-a[1])[0];
+  if (!top || top[1]===0) return;
+  document.getElementById('topTipper').style.display='flex';
+  document.getElementById('topTipperName').textContent = top[0];
+  document.getElementById('topTipperAmt').textContent  = top[1]+' ME';
+}
+
+// ── CHAT ──────────────────────────────────────────────────────────
+function addMsg(who, color, text, type='') {
+  const feed = document.getElementById('chatFeed');
+  const now = new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit'});
+  const div = document.createElement('div');
+  if (type==='system') {
+    div.className='msg system';
+    div.innerHTML=`<div class="msg-text">${text}</div>`;
+  } else if (type==='tip') {
+    div.className='msg tip';
+    div.innerHTML=`<div style="font-size:16px">💰</div><div class="msg-text" style="color:var(--gold);font-size:11px;font-weight:600">${text}</div>`;
+  } else {
+    div.className='msg';
+    div.innerHTML=`
+      <div class="msg-av" style="background:${color}">${who[0]}</div>
+      <div class="msg-body">
+        <div class="msg-header">
+          <span class="msg-name" style="color:${color}">${who}</span>
+          <span class="msg-time">${now}</span>
+        </div>
+        <div class="msg-text">${text}</div>
+      </div>`;
+  }
+  feed.appendChild(div);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function addSysMsg(who, text) { addMsg(who,'','',text,'system'); addMsg(who,'',text,'system'); }
+
+function sendMsg() {
+  const inp = document.getElementById('chatInput');
+  const txt = inp.value.trim(); if (!txt) return;
+  addMsg('You','#FF5E00',txt);
+  inp.value='';
+  simulateResponse(txt);
+}
+
+const RESP_POOL = [
+  'this drop is sending me 🔥','the bass on this one!!','can we keep this on repeat all night?',
+  'I felt that change fr','the engineer cooked on this one','who produced this???? 👀',
+  'energy is immaculate rn','can\'t stop moving to this','vibes are unmatched tonight',
+  '💯💯💯','first drop of the night and it\'s already this hard??','locking in 🎯',
+];
+
+function simulateResponse(t) {
+  if (Math.random()<.6) {
+    const l = SEED_LISTENERS[Math.floor(Math.random()*5)];
+    setTimeout(()=>addMsg(l.name,l.color,RESP_POOL[Math.floor(Math.random()*RESP_POOL.length)]),600+Math.random()*2000);
+  }
+}
+
+// ── REACTIONS ─────────────────────────────────────────────────────
+function fireReact(emoji) {
+  addMsg('You','#FF5E00',emoji);
+  floatReact(emoji);
+  setTimeout(()=>{ const l=SEED_LISTENERS[Math.floor(Math.random()*5)]; floatReact(emoji,l.color); },300+Math.random()*600);
+}
+
+function floatReact(emoji, color) {
+  const div=document.createElement('div');
+  div.className='fly-react'; div.textContent=emoji;
+  const stage=document.querySelector('.chat-zone').getBoundingClientRect();
+  div.style.left=(stage.left+50+Math.random()*(stage.width-100))+'px';
+  div.style.top=(stage.bottom-40)+'px';
+  document.body.appendChild(div);
+  setTimeout(()=>div.remove(),2600);
+}
+
+// ── TIPS ──────────────────────────────────────────────────────────
+function sendTip(amt) {
+  if (DR.wallet<amt){ showToast('Insufficient ME tokens','info'); return; }
+  DR.wallet-=amt;
+  DR.totalTips+=amt;
+  document.getElementById('adminWallet').textContent=(DR.wallet+' ME');
+  const t=DR.queue[DR.currentTrack];
+  const creator=t?t.creator:'Creator';
+  if (!DR.tips[creator]) DR.tips[creator]=0;
+  DR.tips[creator]+=amt;
+  addMsg('You','#FF5E00',`tipped ${amt} ME to ${creator} 💰`,'tip');
+  updateTopTipper();
+  showToast(`💰 Tipped ${amt} ME to ${creator}`,'tip');
+  const burst=document.createElement('div');
+  burst.className='tip-burst';
+  burst.textContent='💰';
+  burst.style.cssText=`font-size:28px;left:${50+Math.random()*40}%;top:${50+Math.random()*30}%`;
+  document.body.appendChild(burst);
+  setTimeout(()=>burst.remove(),700);
+}
+
+// ── DROP / CREATE ──────────────────────────────────────────────────
+function dropTrack() {
+  const title   = document.getElementById('d-title').value.trim();
+  const creator = document.getElementById('d-creator').value.trim();
+  if (!title||!creator){ setConf('dropConf','✕ Title and creator required','var(--red)'); return; }
+  const t = {
+    title, creator,
+    emoji:    document.getElementById('d-emoji').value||'🎵',
+    dur:      document.getElementById('d-dur').value||'3:30',
+    url:      document.getElementById('d-url').value,
+    genre:    document.getElementById('d-genre').value,
+    exclusive:document.getElementById('d-vip').value==='true',
+  };
+  DR.queue.unshift(t);
+  loadTrack(0);
+  if (!DR.playing) togglePlay();
+  renderQueue();
+  setConf('dropConf','◆ TRACK DROPPED — NOW PLAYING','var(--green)');
+  addSysMsg(null,`🎧 ${creator} dropped "${title}" into the room`);
+  document.getElementById('d-title').value='';
+  document.getElementById('d-creator').value='';
+}
+
+function createRoom() {
+  const name = document.getElementById('nr-name').value.trim();
+  if (!name){ return; }
+  DR.rooms.unshift({
+    name, creator:'You',
+    emoji:  document.getElementById('nr-emoji').value||'🔊',
+    color:  document.getElementById('nr-color').value,
+    listeners:1, live:true, exclusive:false,
+  });
+  renderRoomList();
+  switchRoom(0);
+  document.getElementById('nr-name').value='';
+}
+
+function setConf(id,msg,color){ const e=document.getElementById(id); e.textContent=msg; e.style.color=color; setTimeout(()=>e.textContent='',2500); }
+
+// ── ADMIN TABS ─────────────────────────────────────────────────────
+function showAdminTab(name, el) {
+  document.querySelectorAll('.atab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.atab-pane').forEach(p=>p.classList.remove('on'));
+  document.getElementById('ap-'+name).classList.add('on');
+}
+
+function addME(amt){ DR.wallet+=amt; document.getElementById('adminWallet').textContent=DR.wallet+' ME'; showToast('+'+amt+' ME added','info'); }
+
+// ── TOAST ──────────────────────────────────────────────────────────
+function showToast(msg,type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; clearTimeout(t._t); t._t=setTimeout(()=>t.className='toast '+type,2200); }
+
+function shareRoom(){ navigator.clipboard?.writeText('https://dmeg.tv/droproom/'+DR.currentRoom); showToast('◆ Room link copied — share it everywhere','info'); }
+
+// ── SIMULATED LIVE ACTIVITY ───────────────────────────────────────
+function simulateLive() {
+  // Random listener reactions
+  setInterval(()=>{
+    const l=SEED_LISTENERS[Math.floor(Math.random()*SEED_LISTENERS.length)];
+    if (l.isMe||Math.random()>.4) return;
+    const reactions=['🔥','💯','🎵','✨','👑'];
+    const r=reactions[Math.floor(Math.random()*reactions.length)];
+    l.reaction=r;
+    const el=document.getElementById('li-'+l.name.replace(/\s/g,'_'));
+    if (el) { const rd=el.querySelector('.l-react'); if(rd)rd.textContent=r; else { const d=document.createElement('div'); d.className='l-react'; d.textContent=r; el.appendChild(d); setTimeout(()=>d.remove(),3000); } }
+    floatReact(r,l.color);
+    if (Math.random()<.3) addMsg(l.name,l.color,r);
+  },4000);
+
+  // Random chat messages
+  setInterval(()=>{
+    if (Math.random()<.35&&DR.playing) {
+      const l=SEED_LISTENERS[Math.floor(Math.random()*5)];
+      addMsg(l.name,l.color,RESP_POOL[Math.floor(Math.random()*RESP_POOL.length)]);
+    }
+  },9000);
+
+  // Listener count drift
+  setInterval(()=>{
+    const r=DR.rooms[DR.currentRoom];
+    if (r) { r.listeners+=Math.floor((Math.random()-.3)*3); r.listeners=Math.max(1,r.listeners); document.getElementById('listenerCount').textContent=r.listeners; }
+  },7000);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+function init() {
+  DR.rooms  = [...SEED_ROOMS];
+  DR.queue  = [...SEED_QUEUE];
+
+  resizeWave(); resizeViz();
+  window.addEventListener('resize',()=>{ resizeWave(); resizeViz(); });
+
+  renderRoomList();
+  renderListeners();
+  buildEQ();
+  loadTrack(0);
+  renderQueue();
+
+  SEED_MSGS.forEach(m=>addMsg(m.who,m.color,m.text,m.system?'system':''));
+  addSysMsg(null,'Welcome to the Drop Room · React · Tip · Vibe 🎧');
+
+  waveData = genWave(200);
+  drawWave();
+  drawViz();
+  simulateLive();
+}
+
+init();
+</script>
+</body>
+</html>
