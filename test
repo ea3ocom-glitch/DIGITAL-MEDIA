@@ -1,0 +1,536 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DMEG.TV — Triple Media Station</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--accent:#6366f1;--accent2:#a78bfa;--amber:#fbbf24;--red:#f87171;--green:#34d399;--pink:#f472b6}
+body{background:linear-gradient(160deg,#04040e 0%,#080818 50%,#04040e 100%);min-height:100vh;font-family:'Rajdhani',system-ui,sans-serif;color:#fff;overflow-x:hidden}
+@keyframes ledPulse{0%,100%{opacity:1}50%{opacity:.55}}
+@keyframes orbit{0%{transform:rotate(0deg) translateX(28px) rotate(0deg)}100%{transform:rotate(360deg) translateX(28px) rotate(-360deg)}}
+@keyframes kenBurns{0%{transform:scale(1);transform-origin:30% 40%}100%{transform:scale(1.08);transform-origin:70% 60%}}
+@keyframes fadeSlide{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+@keyframes scanMove{0%{top:-4%}100%{top:104%}}
+@keyframes chromeShine{0%{background-position:200% center}100%{background-position:-200% center}}
+@keyframes tickerPulse{0%,100%{color:#555}50%{color:#888}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes meFlash{0%,100%{opacity:1}50%{opacity:.5;transform:scale(1.1)}}
+.ctrl-btn{background:linear-gradient(180deg,#1a1a2a 0%,#0d0d1a 100%);border:1px solid #222236;border-radius:6px;color:#666;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif}
+.ctrl-btn:hover{background:linear-gradient(180deg,#222240,#131325);color:#fff;border-color:var(--accent);box-shadow:0 0 8px rgba(99,102,241,.3)}
+.ctrl-btn:active{transform:scale(.94)}
+.led-bar{transition:height .07s ease,background .07s ease,box-shadow .07s ease}
+.panel{background:linear-gradient(160deg,#0d0d1e 0%,#080814 100%);border:1px solid #1a1a2e;border-radius:14px;overflow:hidden;position:relative;box-shadow:0 0 0 1px #06060e,inset 0 1px 0 rgba(255,255,255,.05)}
+.panel-center{background:#000;border:1px solid #1a1a2e;border-radius:14px;overflow:hidden;position:relative;box-shadow:0 0 0 1px #06060e,0 0 40px rgba(99,102,241,.08),inset 0 1px 0 rgba(255,255,255,.05);display:flex;flex-direction:column}
+.chrome-bar-top{height:3px;background:linear-gradient(90deg,transparent 0%,var(--accent) 30%,#fff 50%,var(--accent2) 70%,transparent 100%)}
+.chrome-bar-amber{height:3px;background:linear-gradient(90deg,transparent 0%,var(--amber) 30%,#fff 50%,var(--red) 70%,transparent 100%)}
+.chrome-bar-center{height:4px;background:linear-gradient(90deg,#0d0d1e 0%,var(--accent) 20%,#fff 50%,var(--accent2) 80%,#0d0d1e 100%)}
+.glass-sheen{position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.04) 0%,transparent 40%,rgba(255,255,255,.02) 100%);pointer-events:none}
+.crt-lines{position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.05) 2px,rgba(0,0,0,.05) 4px);pointer-events:none}
+.photo-img{width:100%;height:100%;object-fit:cover;animation:kenBurns 8s ease-in-out infinite alternate}
+.photo-img.transitioning{opacity:0;transition:opacity .3s ease}
+.photo-img.visible{opacity:1;transition:opacity .3s ease}
+::-webkit-scrollbar{width:3px;background:#04040e}
+::-webkit-scrollbar-thumb{background:#1a1a2e;border-radius:2px}
+</style>
+</head>
+<body>
+<div style="background-image:linear-gradient(rgba(99,102,241,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,.025) 1px,transparent 1px);background-size:44px 44px;min-height:100vh;padding:16px;">
+<div style="max-width:1100px;margin:0 auto;">
+
+<!-- HEADER -->
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+  <div>
+    <div style="font-family:'Orbitron',monospace;font-size:20px;font-weight:900;letter-spacing:.08em;line-height:1;">
+      DMEG<span style="color:var(--accent)">.TV</span>
+      <span style="font-size:9px;color:#333;margin-left:10px;letter-spacing:.15em;font-weight:400;">MEDIA STATION v2.0</span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:5px;">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;animation:ledPulse 1s infinite;box-shadow:0 0 5px var(--green)"></span>
+      <span style="font-size:9px;color:var(--green);letter-spacing:.12em;font-family:'Orbitron',monospace;">ALL SYSTEMS ONLINE</span>
+      <span style="font-size:9px;color:var(--red);letter-spacing:.1em;font-family:'Orbitron',monospace;animation:ledPulse 1.8s infinite;">● LIVE FEED ACTIVE</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:8px;padding:7px 16px;text-align:center;min-width:72px;">
+      <div id="me-display" style="font-family:'Orbitron',monospace;font-size:18px;font-weight:900;color:var(--accent2);">0.0</div>
+      <div style="font-size:8px;color:#444;letter-spacing:.1em;margin-top:1px;">ME EARNED</div>
+    </div>
+    <div style="background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:7px 16px;text-align:center;">
+      <div style="font-family:'Orbitron',monospace;font-size:18px;font-weight:900;color:var(--red);animation:ledPulse 1.2s infinite;">LIVE</div>
+      <div style="font-size:8px;color:#444;letter-spacing:.1em;margin-top:1px;">3 STREAMS</div>
+    </div>
+    <div style="background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.15);border-radius:8px;padding:7px 16px;text-align:center;">
+      <div id="viewer-count" style="font-family:'Orbitron',monospace;font-size:18px;font-weight:900;color:var(--amber);">5.2K</div>
+      <div style="font-size:8px;color:#444;letter-spacing:.1em;margin-top:1px;">WATCHING</div>
+    </div>
+  </div>
+</div>
+
+<!-- TRIPLE PANEL GRID -->
+
+<div style="display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:12px;margin-bottom:12px;align-items:start;">
+
+<!-- ═══ PANEL 1: AUDIO ═══ -->
+
+<div class="panel" id="audio-panel">
+  <div class="chrome-bar-top"></div>
+  <div style="padding:14px 14px 0;">
+    <!-- Album art -->
+    <div style="position:relative;width:96px;height:96px;margin:0 auto 12px;">
+      <div id="orbit-ring" style="position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(99,102,241,.15);">
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);position:absolute;top:-3px;left:50%;transform:translateX(-50%);animation:ledPulse 1s infinite;"></div>
+      </div>
+      <div style="position:absolute;inset:-4px;border-radius:50%;border:1px solid rgba(99,102,241,.25);transition:border-color .3s;" id="outer-ring"></div>
+      <div id="album-art" style="width:96px;height:96px;border-radius:50%;overflow:hidden;border:2px solid rgba(99,102,241,.5);box-shadow:0 0 20px rgba(99,102,241,.25),inset 0 0 20px rgba(0,0,0,.5);position:relative;z-index:1;">
+        <img id="album-img" src="https://picsum.photos/seed/drk1/192/192" style="width:100%;height:100%;object-fit:cover;filter:saturate(1.3)"/>
+      </div>
+      <div id="orbit-anim" style="position:absolute;inset:-8px;border-radius:50%;animation:orbit 8s linear infinite;pointer-events:none;"></div>
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:#06060e;border:2px solid var(--accent);z-index:2;"></div>
+    </div>
+
+```
+<!-- Track info -->
+<div style="text-align:center;margin-bottom:10px;">
+  <div id="track-title" style="font-family:'Orbitron',monospace;font-size:10px;font-weight:700;color:#fff;letter-spacing:.04em;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">God's Plan (Live Session)</div>
+  <div id="track-artist" style="font-size:11px;color:var(--accent);letter-spacing:.06em;font-weight:600;">Drake</div>
+  <div id="track-genre" style="font-size:9px;color:#333;margin-top:1px;letter-spacing:.08em;">Hip-Hop</div>
+</div>
+
+<!-- Progress -->
+<div id="audio-prog-wrap" onclick="scrubAudio(event)" style="background:#0a0a14;border-radius:3px;height:4px;margin-bottom:7px;cursor:pointer;position:relative;border:1px solid #1a1a28;">
+  <div id="audio-prog" style="height:100%;background:linear-gradient(90deg,var(--accent),#fff);border-radius:3px;width:22%;box-shadow:0 0 8px var(--accent);transition:width .1s;"></div>
+  <div id="audio-thumb" style="position:absolute;top:50%;left:22%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 6px var(--accent);pointer-events:none;transition:left .1s;"></div>
+</div>
+<div style="display:flex;justify-content:space-between;font-family:'Orbitron',monospace;font-size:8px;color:#333;margin-bottom:10px;">
+  <span id="audio-cur">0:48</span><span>3:42</span>
+</div>
+
+<!-- Controls -->
+<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
+  <button class="ctrl-btn" style="width:30px;height:30px;font-size:13px;" onclick="prevTrack()">⏮</button>
+  <button id="play-btn" onclick="togglePlay()" style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#8b5cf6);border:none;color:#fff;font-size:20px;cursor:pointer;box-shadow:0 0 18px rgba(99,102,241,.5);display:flex;align-items:center;justify-content:center;transition:all .2s;">▶</button>
+  <button class="ctrl-btn" style="width:30px;height:30px;font-size:13px;" onclick="nextTrack()">⏭</button>
+  <button id="like-audio" class="ctrl-btn" style="width:30px;height:30px;font-size:13px;" onclick="toggleLike('audio',0.5)">♥</button>
+</div>
+
+<!-- Volume -->
+<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+  <span style="font-size:10px;color:#333;">🔈</span>
+  <div id="vol-wrap" onclick="scrubVol(event)" style="flex:1;height:3px;background:#0a0a14;border-radius:2px;cursor:pointer;position:relative;border:1px solid #1a1a28;">
+    <div id="vol-fill" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;width:78%;box-shadow:0 0 5px var(--accent);"></div>
+  </div>
+  <span id="vol-num" style="font-family:'Orbitron',monospace;font-size:8px;color:#444;min-width:22px;">78</span>
+</div>
+```
+
+  </div>
+
+  <!-- SPECTRUM ANALYZER -->
+
+  <div style="background:#03030a;border-top:1px solid #0e0e1a;padding:8px 12px;">
+    <div style="font-family:'Orbitron',monospace;font-size:7px;color:#222;letter-spacing:.14em;margin-bottom:5px;">SPECTRUM ANALYZER</div>
+    <div id="spectrum" style="display:flex;gap:2px;align-items:flex-end;height:36px;margin-bottom:6px;"></div>
+    <!-- VU meters -->
+    <div style="display:flex;gap:5px;">
+      <div style="flex:1;">
+        <div id="vu-l" style="display:flex;gap:1.5px;height:5px;"></div>
+        <div style="font-size:7px;color:#222;margin-top:2px;font-family:'Orbitron',monospace;letter-spacing:.1em;">L</div>
+      </div>
+      <div style="flex:1;">
+        <div id="vu-r" style="display:flex;gap:1.5px;height:5px;"></div>
+        <div style="font-size:7px;color:#222;margin-top:2px;font-family:'Orbitron',monospace;letter-spacing:.1em;">R</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Track queue -->
+
+  <div style="padding:8px 12px 12px;">
+    <div style="font-family:'Orbitron',monospace;font-size:7px;color:#222;letter-spacing:.14em;margin-bottom:7px;">QUEUE</div>
+    <div id="queue" style="display:flex;flex-direction:column;gap:3px;"></div>
+  </div>
+</div>
+
+<!-- ═══ PANEL 2: VIDEO CENTER ═══ -->
+
+<div class="panel-center" id="video-panel">
+  <div class="chrome-bar-center"></div>
+
+  <!-- Video viewport -->
+
+  <div id="video-viewport" onclick="toggleVideoPlay()" style="position:relative;overflow:hidden;flex:1;min-height:220px;cursor:pointer;">
+    <img id="video-img" src="https://picsum.photos/seed/gl1/900/506" style="width:100%;height:100%;object-fit:cover;display:block;filter:brightness(.68);transition:src .3s;"/>
+    <div class="glass-sheen"></div>
+    <div class="crt-lines"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.38) 0%,transparent 28%,transparent 62%,rgba(0,0,0,.82) 100%);pointer-events:none;"></div>
+    <!-- Scanline -->
+    <div id="scanline" style="position:absolute;left:0;right:0;height:3px;background:linear-gradient(to bottom,transparent,rgba(99,102,241,.1),transparent);top:0%;pointer-events:none;"></div>
+    <!-- Corner LED indicators -->
+    <div style="position:absolute;top:0;left:0;width:12px;height:12px;border-top:2px solid var(--accent);border-left:2px solid var(--accent);border-radius:2px 0 0 0;pointer-events:none;"></div>
+    <div style="position:absolute;top:0;right:0;width:12px;height:12px;border-top:2px solid var(--accent);border-right:2px solid var(--accent);border-radius:0 2px 0 0;pointer-events:none;"></div>
+    <div style="position:absolute;bottom:52px;left:0;width:12px;height:12px;border-bottom:2px solid var(--accent);border-left:2px solid var(--accent);border-radius:0 0 0 2px;pointer-events:none;"></div>
+    <div style="position:absolute;bottom:52px;right:0;width:12px;height:12px;border-bottom:2px solid var(--accent);border-right:2px solid var(--accent);border-radius:0 0 2px 0;pointer-events:none;"></div>
+    <!-- Channel bug -->
+    <div style="position:absolute;top:14px;left:14px;background:rgba(0,0,0,.82);border:1px solid rgba(255,255,255,.1);border-radius:5px;padding:3px 9px;backdrop-filter:blur(6px);">
+      <span style="font-family:'Orbitron',monospace;font-size:10px;font-weight:900;color:#fff;letter-spacing:.08em;">DMEG<span style="color:var(--accent)">.TV</span></span>
+    </div>
+    <!-- HD badge -->
+    <div style="position:absolute;top:14px;right:14px;display:flex;align-items:center;gap:5px;background:rgba(0,0,0,.75);border:1px solid rgba(248,113,113,.35);border-radius:20px;padding:3px 10px;">
+      <span style="width:5px;height:5px;border-radius:50%;background:var(--red);display:inline-block;animation:ledPulse 1s infinite;box-shadow:0 0 4px var(--red);"></span>
+      <span style="font-family:'Orbitron',monospace;font-size:9px;font-weight:700;color:var(--red);letter-spacing:.1em;">HD</span>
+    </div>
+    <!-- Play overlay -->
+    <div id="play-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+      <div style="width:64px;height:64px;border-radius:50%;background:rgba(99,102,241,.88);display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px rgba(99,102,241,.5);">
+        <span style="font-size:24px;color:#fff;margin-left:4px;">▶</span>
+      </div>
+    </div>
+    <!-- Bottom video info -->
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:10px 14px;">
+      <div id="vid-title" style="font-family:'Orbitron',monospace;font-size:12px;font-weight:700;color:#fff;margin-bottom:4px;text-shadow:0 1px 6px rgba(0,0,0,.9);">Spring Lookbook 2025</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span id="vid-info" style="font-size:10px;color:rgba(255,255,255,.45);">@glamourstudio · 3.1K views</span>
+        <span id="vid-me" style="font-size:11px;color:var(--accent2);font-weight:700;font-family:'Orbitron',monospace;">1,700 ME</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Video progress bar -->
+
+  <div style="background:#02020a;padding:8px 14px;flex-shrink:0;border-top:1px solid #0e0e1a;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <span id="vid-cur" style="font-family:'Orbitron',monospace;font-size:8px;color:#333;min-width:28px;">0:00</span>
+      <div id="vid-prog-wrap" onclick="scrubVideo(event)" style="flex:1;height:4px;background:#0a0a14;border-radius:2px;cursor:pointer;position:relative;border:1px solid #1a1a28;">
+        <div id="vid-prog" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;width:0%;box-shadow:0 0 8px var(--accent);transition:width .1s;"></div>
+        <div id="vid-thumb" style="position:absolute;top:50%;left:0%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 6px var(--accent);pointer-events:none;"></div>
+      </div>
+      <span style="font-family:'Orbitron',monospace;font-size:8px;color:#333;min-width:28px;">5:14</span>
+    </div>
+    <!-- Video controls row -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <div style="display:flex;gap:6px;">
+        <button class="ctrl-btn" style="width:30px;height:26px;font-size:11px;" onclick="nextVideo()">⏭</button>
+        <button id="like-video" class="ctrl-btn" style="width:30px;height:26px;font-size:11px;" onclick="toggleLike('video',0.5)">♥</button>
+        <button class="ctrl-btn" style="width:30px;height:26px;font-size:11px;" onclick="earnME(1.5)">🔗</button>
+        <button class="ctrl-btn" style="width:30px;height:26px;font-size:11px;" onclick="earnME(0.25)">⭐</button>
+      </div>
+      <!-- Video thumbnails -->
+      <div style="display:flex;gap:4px;" id="vid-thumbs"></div>
+    </div>
+  </div>
+  <div class="chrome-bar-center"></div>
+</div>
+
+<!-- ═══ PANEL 3: PHOTO GALLERY ═══ -->
+
+<div class="panel" id="photo-panel">
+  <div class="chrome-bar-amber"></div>
+
+  <!-- Photo viewport -->
+
+  <div style="position:relative;overflow:hidden;min-height:200px;cursor:pointer;" onclick="nextPhoto()">
+    <img id="photo-img" class="photo-img visible" src="https://picsum.photos/seed/pk_nyc/640/400" style="display:block;"/>
+    <div class="glass-sheen"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.03) 0%,transparent 50%,rgba(0,0,0,.25) 100%);pointer-events:none;"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.35) 0%,transparent 35%,rgba(0,0,0,.7) 100%);pointer-events:none;"></div>
+    <!-- Corner brackets -->
+    <div style="position:absolute;top:0;left:0;width:14px;height:14px;border-top:2px solid var(--amber);border-left:2px solid var(--amber);border-radius:2px 0 0 0;pointer-events:none;"></div>
+    <div style="position:absolute;top:0;right:0;width:14px;height:14px;border-top:2px solid var(--amber);border-right:2px solid var(--amber);border-radius:0 2px 0 0;pointer-events:none;"></div>
+    <div style="position:absolute;bottom:0;left:0;width:14px;height:14px;border-bottom:2px solid var(--amber);border-left:2px solid var(--amber);border-radius:0 0 0 2px;pointer-events:none;"></div>
+    <div style="position:absolute;bottom:0;right:0;width:14px;height:14px;border-bottom:2px solid var(--amber);border-right:2px solid var(--amber);border-radius:0 0 2px 0;pointer-events:none;"></div>
+    <!-- Gallery badge -->
+    <div style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,.8);border:1px solid rgba(251,191,36,.35);border-radius:5px;padding:2px 8px;">
+      <span style="font-family:'Orbitron',monospace;font-size:8px;font-weight:700;color:var(--amber);letter-spacing:.1em;">◈ GALLERY</span>
+    </div>
+    <!-- Counter -->
+    <div id="photo-counter" style="position:absolute;top:12px;right:12px;font-family:'Orbitron',monospace;font-size:9px;color:rgba(255,255,255,.55);background:rgba(0,0,0,.65);border-radius:4px;padding:2px 7px;">1/6</div>
+    <!-- Nav -->
+    <button onclick="event.stopPropagation();prevPhoto()" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.12);border-radius:6px;color:#fff;width:26px;height:26px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;">‹</button>
+    <button onclick="event.stopPropagation();nextPhoto()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.12);border-radius:6px;color:#fff;width:26px;height:26px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;">›</button>
+    <!-- Photo info -->
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:8px 10px;">
+      <div id="photo-title" style="font-size:11px;font-weight:700;color:#fff;margin-bottom:2px;font-family:'Orbitron',monospace;letter-spacing:.04em;">Behind the Lens</div>
+      <div id="photo-creator" style="font-size:9px;color:rgba(255,255,255,.4);">PixelKingz</div>
+    </div>
+  </div>
+
+  <!-- Slide timer -->
+
+  <div style="height:2px;background:#0a0a14;">
+    <div id="slide-timer" style="height:100%;background:linear-gradient(90deg,var(--amber),var(--red));width:100%;transition:width .08s linear;box-shadow:0 0 5px var(--amber);"></div>
+  </div>
+
+  <!-- Thumbnail grid -->
+
+  <div style="padding:10px 12px;background:#03030a;border-top:1px solid #0e0e1a;">
+    <div style="font-family:'Orbitron',monospace;font-size:7px;color:#222;letter-spacing:.14em;margin-bottom:7px;">GALLERY — 6 ITEMS</div>
+    <div id="photo-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;"></div>
+  </div>
+
+  <!-- Photo actions -->
+
+  <div style="padding:8px 12px 12px;display:flex;gap:6px;">
+    <button id="like-photo" class="ctrl-btn" style="flex:1;height:28px;font-size:11px;" onclick="toggleLike('photo',0.5)">♥ Like</button>
+    <button class="ctrl-btn" style="flex:1;height:28px;font-size:11px;" onclick="earnME(1.5)">🔗 Share</button>
+    <button class="ctrl-btn" style="flex:1;height:28px;font-size:11px;" onclick="earnME(5)">📸 Save</button>
+  </div>
+
+  <!-- Photo ME indicator -->
+
+  <div style="padding:0 12px 12px;display:flex;align-items:center;gap:8px;">
+    <div style="flex:1;height:2px;background:#0a0a14;border-radius:1px;overflow:hidden;">
+      <div id="photo-earn-bar" style="height:100%;background:linear-gradient(90deg,var(--amber),var(--green));width:0%;transition:width .5s ease;box-shadow:0 0 4px var(--amber);"></div>
+    </div>
+    <span id="photo-me" style="font-family:'Orbitron',monospace;font-size:9px;color:var(--amber);">0.0 ME</span>
+  </div>
+</div>
+
+</div><!-- end grid -->
+
+<!-- ═══ BOTTOM STATUS BAR ═══ -->
+
+<div style="background:linear-gradient(90deg,#03030c,#070716,#03030c);border:1px solid #0e0e1a;border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:14px;overflow:hidden;position:relative;">
+  <!-- LED row -->
+  <div style="display:flex;gap:4px;flex-shrink:0;" id="status-leds"></div>
+  <!-- Activity -->
+  <div style="flex:1;overflow:hidden;">
+    <div id="activity-text" style="font-size:10px;color:#555;letter-spacing:.06em;white-space:nowrap;transition:opacity .3s;">
+      <span style="color:var(--red);margin-right:8px;font-family:'Orbitron',monospace;font-size:8px;animation:ledPulse 1.2s infinite;">◆ LIVE</span>levias bought 3 shares $DRAKE
+    </div>
+  </div>
+  <!-- System states -->
+  <div style="display:flex;gap:14px;flex-shrink:0;" id="sys-states"></div>
+  <!-- Total ME -->
+  <div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:6px;padding:5px 12px;flex-shrink:0;">
+    <span id="me-total" style="font-family:'Orbitron',monospace;font-size:12px;font-weight:900;color:var(--accent2);">+0.0</span>
+    <span style="font-size:8px;color:#444;margin-left:4px;letter-spacing:.08em;">ME</span>
+  </div>
+</div>
+
+</div>
+</div>
+
+<script>
+const TRACKS=[
+  {title:"God's Plan",artist:"Drake",genre:"Hip-Hop",seed:"drk1",color:"#6366f1"},
+  {title:"Crown Season",artist:"Nova Reigns",genre:"R&B",seed:"nv1",color:"#a78bfa"},
+  {title:"Never Make A Promise",artist:"Dru Hill",genre:"R&B Soul",seed:"dh1",color:"#34d399"},
+  {title:"Empire Rise",artist:"Nova Reigns",genre:"R&B",seed:"nv2",color:"#f472b6"},
+  {title:"Hotline Bling",artist:"Drake",genre:"Hip-Hop",seed:"drk2",color:"#fbbf24"},
+];
+const VIDEOS=[
+  {title:"Spring Lookbook 2025",creator:"Glamour Studio",handle:"glamourstudio",views:"3.1K",me:1700,seed:"gl1"},
+  {title:"How I Edit for the Culture",creator:"PixelKingz",handle:"pixelkingz",views:"987",me:1100,seed:"pk_nyc"},
+  {title:"My Investment Strategy",creator:"LEVIAS",handle:"levias",views:"445",me:461,seed:"lv1"},
+  {title:"Tampa Community Talk",creator:"Marcus Williams",handle:"marcuswilliams",views:"2.1K",me:1300,seed:"mw1"},
+];
+const PHOTOS=[
+  {title:"Behind the Lens",creator:"PixelKingz",seed:"pk_nyc"},
+  {title:"Raw Bundle Arrivals",creator:"Glamour Studio",seed:"gl_bundle"},
+  {title:"Studio Session",creator:"Drake",seed:"drk_studio"},
+  {title:"Tampa Street Art",creator:"Marcus Williams",seed:"mw_tampa"},
+  {title:"Crown Season Shoot",creator:"Nova Reigns",seed:"nv_shoot"},
+  {title:"Empire Night",creator:"PixelKingz",seed:"pk_empire"},
+];
+const ACTIVITY=[
+  "levias bought 3 shares $DRAKE","Alex R. tipped 20 ME to Nova","TampaRoots went LIVE",
+  "PixelKingz posted new drop","850 fans streaming now","Hot Take Arena — vote now",
+  "Squad Wars — top squad changes","Bella's merch drop LIVE","Drake stock up 12.3%",
+];
+
+let tIdx=0,vIdx=0,pIdx=0,playing=false,videoPlaying=false,meTotal=0,audioProgress=22,vol=78,videoProgress=0,slideTimer=100,photoMeTotal=0;
+const likes={};
+const BAR_COUNT=32;
+
+function earnME(n){meTotal=Math.round((meTotal+n)*10)/10;document.getElementById("me-display").textContent=meTotal.toFixed(1);document.getElementById("me-total").textContent="+"+meTotal.toFixed(1);}
+
+function toggleLike(key,reward){
+  likes[key]=!likes[key];
+  const btn=document.getElementById("like-"+key);
+  if(btn){btn.style.color=likes[key]?"#f87171":"#666";btn.style.borderColor=likes[key]?"rgba(248,113,113,.4)":"#222236";}
+  if(likes[key])earnME(reward);
+}
+
+// AUDIO
+function updateTrackUI(){
+  const t=TRACKS[tIdx];
+  document.getElementById("track-title").textContent=t.title;
+  document.getElementById("track-artist").textContent=t.artist;
+  document.getElementById("track-genre").textContent=t.genre;
+  document.getElementById("album-img").src=`https://picsum.photos/seed/${t.seed}/192/192`;
+  document.getElementById("album-art").style.borderColor=t.color+"66";
+  document.getElementById("album-art").style.boxShadow=`0 0 20px ${t.color}28,inset 0 0 20px rgba(0,0,0,.5)`;
+  document.getElementById("outer-ring").style.borderColor=t.color+"33";
+  document.getElementById("play-btn").style.background=`linear-gradient(135deg,${t.color},#8b5cf6)`;
+  document.getElementById("play-btn").style.boxShadow=`0 0 18px ${t.color}55`;
+  buildQueue();
+}
+
+function togglePlay(){
+  playing=!playing;
+  document.getElementById("play-btn").textContent=playing?"⏸":"▶";
+  earnME(0.1);
+}
+function nextTrack(){tIdx=(tIdx+1)%TRACKS.length;audioProgress=0;updateTrackUI();}
+function prevTrack(){tIdx=(tIdx-1+TRACKS.length)%TRACKS.length;audioProgress=0;updateTrackUI();}
+
+function scrubAudio(e){const r=e.currentTarget.getBoundingClientRect();audioProgress=Math.round((e.clientX-r.left)/r.width*100);updateAudioProgress();}
+function updateAudioProgress(){
+  document.getElementById("audio-prog").style.width=audioProgress+"%";
+  document.getElementById("audio-thumb").style.left=audioProgress+"%";
+  const t=TRACKS[tIdx];document.getElementById("audio-prog").style.background=`linear-gradient(90deg,${t.color},#fff)`;
+  document.getElementById("audio-prog").style.boxShadow=`0 0 8px ${t.color}`;
+  document.getElementById("audio-thumb").style.boxShadow=`0 0 6px ${t.color}`;
+  const secs=Math.round(audioProgress*2.22);document.getElementById("audio-cur").textContent=Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0");
+}
+
+function scrubVol(e){const r=e.currentTarget.getBoundingClientRect();vol=Math.round((e.clientX-r.left)/r.width*100);document.getElementById("vol-fill").style.width=vol+"%";document.getElementById("vol-num").textContent=vol;}
+
+function buildQueue(){
+  const c=document.getElementById("queue");
+  c.innerHTML=TRACKS.slice(0,4).map((t,i)=>`<div onclick="tIdx=${i};audioProgress=0;updateTrackUI();" style="display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:5px;cursor:pointer;background:${i===tIdx?"#0f0f22":"transparent"};transition:background .2s;">
+    <div style="width:3px;height:22px;border-radius:2px;background:${i===tIdx?t.color:"#1a1a28"};flex-shrink:0;"></div>
+    <img src="https://picsum.photos/seed/${t.seed}/48/48" style="width:22px;height:22px;border-radius:3px;object-fit:cover;flex-shrink:0;"/>
+    <div style="flex:1;min-width:0;"><div style="font-size:9px;font-weight:600;color:${i===tIdx?"#fff":"#555"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.title}</div><div style="font-size:8px;color:#333;">${t.artist}</div></div>
+    ${i===tIdx?`<span style="width:4px;height:4px;border-radius:50%;background:${t.color};animation:ledPulse 1s infinite;box-shadow:0 0 4px ${t.color};flex-shrink:0;"></span>`:""}
+  </div>`).join("");
+}
+
+// SPECTRUM
+function buildSpectrum(){
+  const c=document.getElementById("spectrum");
+  c.innerHTML=Array.from({length:BAR_COUNT}).map((_,i)=>`<div class="led-bar" id="bar${i}" style="flex:1;min-height:2px;border-radius:1px;background:#1a1a2e;"></div>`).join("");
+}
+function buildVU(){
+  ["vu-l","vu-r"].forEach(id=>{
+    document.getElementById(id).innerHTML=Array.from({length:14}).map((_,i)=>`<div id="${id}-${i}" style="flex:1;height:100%;border-radius:1px;background:#0e0e1a;"></div>`).join("");
+  });
+}
+function updateSpectrum(){
+  const intensity=playing?0.65+Math.random()*.35:0.1+Math.random()*.08;
+  const base=Array.from({length:BAR_COUNT}).map((_,i)=>(Math.sin(i*.55+Date.now()*.003)*.5+.5)*intensity);
+  base.forEach((h,i)=>{
+    const el=document.getElementById("bar"+i);
+    if(!el)return;
+    const col=h>.82?"#f87171":h>.62?"#fbbf24":"#6366f1";
+    el.style.height=Math.max(h*100,2)+"%";
+    el.style.background=playing?col:"#1a1a2e";
+    el.style.boxShadow=playing&&h>.55?`0 0 4px ${col}`:"none";
+  });
+  ["vu-l","vu-r"].forEach((id,ci)=>{
+    const v=playing?0.42+Math.random()*.52:0.05+Math.random()*.07;
+    for(let i=0;i<14;i++){
+      const el=document.getElementById(`${id}-${i}`);if(!el)continue;
+      const on=i/14<v;
+      const col=i>11?"#f87171":i>8?"#fbbf24":"#34d399";
+      el.style.background=on?col:"#0e0e1a";
+      el.style.boxShadow=on?`0 0 3px ${col}`:"none";
+    }
+  });
+}
+
+// VIDEO
+function nextVideo(){vIdx=(vIdx+1)%VIDEOS.length;videoProgress=0;updateVideoUI();}
+function updateVideoUI(){
+  const v=VIDEOS[vIdx];
+  document.getElementById("video-img").src=`https://picsum.photos/seed/${v.seed}/900/506`;
+  document.getElementById("vid-title").textContent=v.title;
+  document.getElementById("vid-info").textContent=`@${v.handle} · ${v.views} views`;
+  document.getElementById("vid-me").textContent=v.me.toLocaleString()+" ME";
+  buildVidThumbs();
+  earnME(0.25);
+}
+function toggleVideoPlay(){
+  videoPlaying=!videoPlaying;
+  document.getElementById("play-overlay").style.display=videoPlaying?"none":"flex";
+  if(videoPlaying)earnME(0.25);
+}
+function scrubVideo(e){const r=e.currentTarget.getBoundingClientRect();videoProgress=Math.round((e.clientX-r.left)/r.width*100);updateVideoProgress();}
+function updateVideoProgress(){
+  document.getElementById("vid-prog").style.width=videoProgress+"%";
+  document.getElementById("vid-thumb").style.left=videoProgress+"%";
+  const secs=Math.round(videoProgress*3.14);document.getElementById("vid-cur").textContent=Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0");
+}
+function buildVidThumbs(){
+  const c=document.getElementById("vid-thumbs");
+  c.innerHTML=VIDEOS.map((v,i)=>`<div onclick="vIdx=${i};videoProgress=0;updateVideoUI();" style="width:32px;height:22px;border-radius:4px;overflow:hidden;border:1px solid ${i===vIdx?"#6366f1":"#1e1e2e"};cursor:pointer;opacity:${i===vIdx?1:.45};transition:all .2s;">
+    <img src="https://picsum.photos/seed/${v.seed}/64/44" style="width:100%;height:100%;object-fit:cover;"/></div>`).join("");
+}
+
+// PHOTO
+let photoTransitioning=false;
+function nextPhoto(){if(photoTransitioning)return;doPhotoTransition((pIdx+1)%PHOTOS.length);earnME(0.5);}
+function prevPhoto(){if(photoTransitioning)return;doPhotoTransition((pIdx-1+PHOTOS.length)%PHOTOS.length);}
+function doPhotoTransition(newIdx){
+  photoTransitioning=true;
+  const img=document.getElementById("photo-img");
+  img.classList.remove("visible");img.classList.add("transitioning");
+  setTimeout(()=>{
+    pIdx=newIdx;const p=PHOTOS[pIdx];
+    img.src=`https://picsum.photos/seed/${p.seed}/640/400`;
+    document.getElementById("photo-title").textContent=p.title;
+    document.getElementById("photo-creator").textContent=p.creator;
+    document.getElementById("photo-counter").textContent=(pIdx+1)+"/"+PHOTOS.length;
+    img.classList.remove("transitioning");img.classList.add("visible");
+    slideTimer=100;buildPhotoGrid();photoTransitioning=false;
+    photoMeTotal=Math.round((photoMeTotal+0.5)*10)/10;
+    document.getElementById("photo-me").textContent=photoMeTotal.toFixed(1)+" ME";
+    document.getElementById("photo-earn-bar").style.width=Math.min(photoMeTotal*4,100)+"%";
+  },280);
+}
+function buildPhotoGrid(){
+  const c=document.getElementById("photo-grid");
+  c.innerHTML=PHOTOS.map((p,i)=>`<div onclick="if(${i}!==${pIdx})doPhotoTransition(${i});" style="aspect-ratio:16/9;border-radius:4px;overflow:hidden;border:1px solid ${i===pIdx?"#fbbf24":"#1a1a28"};cursor:pointer;opacity:${i===pIdx?1:.45};transition:all .2s;position:relative;">
+    <img src="https://picsum.photos/seed/${p.seed}/120/68" style="width:100%;height:100%;object-fit:cover;"/>
+    ${i===pIdx?`<div style="position:absolute;inset:0;border:1.5px solid #fbbf24;border-radius:4px;box-shadow:0 0 6px rgba(251,191,36,.4);pointer-events:none;"></div>`:""}
+  </div>`).join("");
+}
+
+// STATUS BAR
+function buildStatusBar(){
+  document.getElementById("status-leds").innerHTML=["#34d399","#6366f1","#fbbf24","#f87171","#a78bfa"].map((c,i)=>`<div style="width:5px;height:5px;border-radius:50%;background:${c};box-shadow:0 0 5px ${c};animation:ledPulse ${1+i*.2}s infinite;"></div>`).join("");
+  updateSysStates();
+}
+function updateSysStates(){
+  const el=document.getElementById("sys-states");if(!el)return;
+  const states=[{l:"AUDIO",v:playing?"PLAYING":"IDLE",c:playing?"#6366f1":"#2a2a3a"},{l:"VIDEO",v:videoPlaying?"PLAYING":"IDLE",c:videoPlaying?"#a78bfa":"#2a2a3a"},{l:"GALLERY",v:"ACTIVE",c:"#fbbf24"}];
+  el.innerHTML=states.map(s=>`<div style="text-align:center;"><div style="font-family:'Orbitron',monospace;font-size:9px;font-weight:700;color:${s.c};${s.c!=="#2a2a3a"?"animation:ledPulse 1.5s infinite;":""}">${s.v}</div><div style="font-size:7px;color:#222;letter-spacing:.1em;margin-top:1px;">${s.l}</div></div>`).join("");
+}
+
+let actIdx=0;
+function tickActivity(){
+  const el=document.getElementById("activity-text");if(!el)return;
+  el.style.opacity=0;
+  setTimeout(()=>{
+    actIdx=(actIdx+1)%ACTIVITY.length;
+    el.innerHTML=`<span style="color:var(--red);margin-right:8px;font-family:'Orbitron',monospace;font-size:8px;animation:ledPulse 1.2s infinite;">◆ LIVE</span>${ACTIVITY[actIdx]}`;
+    el.style.opacity=1;el.style.transition="opacity .3s";
+  },300);
+}
+
+// MAIN LOOP
+let frame=0;
+function loop(){
+  frame++;
+  updateSpectrum();
+  if(playing){audioProgress=Math.min(audioProgress+.12,100);updateAudioProgress();if(frame%8===0)earnME(0.08);}
+  if(videoPlaying){videoProgress=Math.min(videoProgress+.08,100);updateVideoProgress();if(frame%10===0)earnME(0.05);}
+  if(frame%80===0){slideTimer=Math.max(0,slideTimer-4);document.getElementById("slide-timer").style.width=slideTimer+"%";if(slideTimer<=0)nextPhoto();}
+  if(frame%40===0)updateSysStates();
+  document.getElementById("viewer-count").textContent=(5200+Math.round(Math.sin(frame*.01)*180)).toLocaleString().replace(",",".")+"."+Math.floor(Math.random()*9)+"K".replace(/\d+\.\dK/,"")
+  requestAnimationFrame(loop);
+}
+
+// INIT
+buildSpectrum();buildVU();updateTrackUI();buildVidThumbs();buildPhotoGrid();buildStatusBar();
+setInterval(tickActivity,3500);
+loop();
+</script>
+
+</body>
+</html>
